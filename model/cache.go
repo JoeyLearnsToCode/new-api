@@ -1,10 +1,12 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
 	"one-api/common"
+	"one-api/setting/model_setting"
 	"sort"
 	"strings"
 	"sync"
@@ -82,7 +84,26 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
-		return GetRandomSatisfiedChannel(group, model, retry)
+		// 尝试从全局模型重定向里把传入 model 替换为等效模型，然后参与渠道匹配
+		// 理论上，MemoryCacheEnabled 模式也可以实现类似逻辑，但我用不上，先只实现非 MemoryCacheEnabled 模式
+		globalModelSettings := model_setting.GetGlobalSettings()
+		if len(globalModelSettings.ModelMapping) > 0 {
+			if eqModels, ok := globalModelSettings.ModelMapping[model]; ok && len(eqModels) > 0 {
+				channel, ability, err := GetRandomSatisfiedChannel(group, eqModels, retry)
+				if err != nil {
+					return channel, err
+				}
+
+				modelMap := make(map[string]string)
+				_ = json.Unmarshal([]byte(channel.GetModelMapping()), &modelMap)
+				modelMap[model] = ability.Model
+				modelMappingBytes, _ := json.Marshal(modelMap)
+				channel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
+				return channel, nil
+			}
+		}
+		channel, _, err := GetRandomSatisfiedChannel(group, []string{model}, retry)
+		return channel, err
 	}
 	channelSyncLock.RLock()
 	defer channelSyncLock.RUnlock()

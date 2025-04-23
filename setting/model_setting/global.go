@@ -5,12 +5,16 @@ import (
 )
 
 type GlobalSettings struct {
-	PassThroughRequestEnabled bool `json:"pass_through_request_enabled"`
+	PassThroughRequestEnabled bool                `json:"pass_through_request_enabled"`
+	ModelMapping              map[string][]string `json:"model_mapping"`
 }
 
 // 默认配置
 var defaultOpenaiSettings = GlobalSettings{
 	PassThroughRequestEnabled: false,
+	ModelMapping: map[string][]string{
+		"my-favorite-model": {"o3-mini", "o4-mini"},
+	},
 }
 
 // 全局实例

@@ -10,12 +10,17 @@ import {
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
+const GLOBAL_MODEL_MAPPING_EXAMPLE = {
+  'my-favorite-model': ['o3-mini', 'o4-mini'],
+};
+
 export default function SettingGlobalModel(props) {
   const { t } = useTranslation();
 
   const [loading, setLoading] = useState(false);
   const [inputs, setInputs] = useState({
     'global.pass_through_request_enabled': false,
+    'global.model_mapping': '{}',
     'general_setting.ping_interval_enabled': false,
     'general_setting.ping_interval_seconds': 60,
   });
@@ -87,6 +92,34 @@ export default function SettingGlobalModel(props) {
                   }
                   extraText={
                     '开启后，所有请求将直接透传给上游，不会进行任何处理（重定向和渠道适配也将失效）,请谨慎开启'
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.TextArea
+                  label={t('全局模型重定向')}
+                  placeholder={
+                    t('此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称（数组），例如：') +
+                    '\n' +
+                    JSON.stringify(GLOBAL_MODEL_MAPPING_EXAMPLE, null, 2)
+                  }
+                  field={'global.model_mapping'}
+                  autosize={{ minRows: 6, maxRows: 12 }}
+                  trigger='blur'
+                  stopValidateWithError
+                  rules={[
+                    {
+                      validator: (rule, value) => verifyJSON(value),
+                      message: t('不是合法的 JSON 字符串'),
+                    },
+                  ]}
+                  onChange={(value) =>
+                    setInputs({ ...inputs, 'global.model_mapping': value })
+                  }
+                  extraText={
+                    '在请求模型匹配键时，值（数组）中的模型将会被视为等效模型，从而参与渠道匹配'
                   }
                 />
               </Col>

@@ -40,7 +40,7 @@ func GetAllEnableAbilities() []Ability {
 	return abilities
 }
 
-func getPriority(group string, model string, retry int) (int, error) {
+func getPriority(group string, models []string, retry int) (int, error) {
 	trueVal := "1"
 	if common.UsingPostgreSQL {
 		trueVal = "true"
@@ -49,7 +49,7 @@ func getPriority(group string, model string, retry int) (int, error) {
 	var priorities []int
 	err := DB.Model(&Ability{}).
 		Select("DISTINCT(priority)").
-		Where(groupCol+" = ? and model = ? and enabled = "+trueVal, group, model).
+		Where(groupCol+" = ? and model in ? and enabled = "+trueVal, group, models).
 		Order("priority DESC").              // 按优先级降序排序
 		Pluck("priority", &priorities).Error // Pluck用于将查询的结果直接扫描到一个切片中
 
@@ -74,39 +74,42 @@ func getPriority(group string, model string, retry int) (int, error) {
 	return priorityToUse, nil
 }
 
-func getChannelQuery(group string, model string, retry int) *gorm.DB {
+func getChannelQuery(group string, models []string, retry int) *gorm.DB {
 	trueVal := "1"
 	if common.UsingPostgreSQL {
 		trueVal = "true"
 	}
-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(groupCol+" = ? and model = ? and enabled = "+trueVal, group, model)
-	channelQuery := DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = (?)", group, model, maxPrioritySubQuery)
+	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(groupCol+" = ? and model in ? and enabled = "+trueVal, group, models)
+	channelQuery := DB.Where(groupCol+" = ? and model in ? and enabled = "+trueVal+" and priority = (?)", group, models, maxPrioritySubQuery)
 	if retry != 0 {
-		priority, err := getPriority(group, model, retry)
+		priority, err := getPriority(group, models, retry)
 		if err != nil {
 			common.SysError(fmt.Sprintf("Get priority failed: %s", err.Error()))
 		} else {
-			channelQuery = DB.Where(groupCol+" = ? and model = ? and enabled = "+trueVal+" and priority = ?", group, model, priority)
+			channelQuery = DB.Where(groupCol+" = ? and model in ? and enabled = "+trueVal+" and priority = ?", group, models, priority)
 		}
 	}
 
 	return channelQuery
 }
 
-func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
+func GetRandomSatisfiedChannel(group string, models []string, retry int) (*Channel, *Ability, error) {
 	var abilities []Ability
 
 	var err error = nil
-	channelQuery := getChannelQuery(group, model, retry)
+	channelQuery := getChannelQuery(group, models, retry)
 	if common.UsingSQLite || common.UsingPostgreSQL {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	} else {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	channel := Channel{}
+	var (
+		channel         Channel
+		selectedAbility *Ability
+	)
 	if len(abilities) > 0 {
 		// Randomly choose one
 		weightSum := uint(0)
@@ -120,14 +123,15 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
 			if weight <= 0 {
 				channel.Id = ability_.ChannelId
+				selectedAbility = &ability_
 				break
 			}
 		}
 	} else {
-		return nil, errors.New("channel not found")
+		return nil, nil, errors.New("channel not found")
 	}
 	err = DB.First(&channel, "id = ?", channel.Id).Error
-	return &channel, err
+	return &channel, selectedAbility, err
 }
 
 func (channel *Channel) AddAbilities() error {
