@@ -42,7 +42,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           go mod download
-          go build -ldflags \"-s -w -X 'one-api/common.Version=$(git describe --tags)'\" -o new-api-freebsd
+          go build -ldflags "-s -w -X 'one-api/common.Version=$(git describe --tags)' -extldflags '-static'" -o new-api-freebsd
 
       - name: Release
         uses: softprops/action-gh-release@v1
