@@ -144,16 +144,49 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 		return nil, errors.New("channel not found")
 	}
 
+	selectedChannel, err := selectChannelByPriorityAndWeight(channels, retry)
+	if err != nil {
+		return nil, err
+	}
+
+	channelModels := selectedChannel.GetModels()
+	if !usingGlobalModelMapping || (common.StringsContains(channelModels, model) && common.StringsContains(targetModels, model)) {
+		return selectedChannel, nil
+	}
+
+	acceptableModels := common.StringsIntersection(channelModels, targetModels)
+	if len(acceptableModels) == 0 {
+		return nil, errors.New("no acceptable model left after global model mapping")
+	}
+	// 不修改原channel，复制一份
+	copyChannel := *selectedChannel
+	modelMap := make(map[string]string)
+	err = json.Unmarshal([]byte(copyChannel.GetModelMapping()), &modelMap)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal_model_mapping_failed")
+	}
+	modelMap[model] = acceptableModels[rand.Intn(len(acceptableModels))]
+	modelMappingBytes, _ := json.Marshal(modelMap)
+	copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
+	return &copyChannel, nil
+}
+
+// selectChannelByPriorityAndWeight 根据优先级和权重随机选择channel
+func selectChannelByPriorityAndWeight(channels []*Channel, retry int) (*Channel, error) {
+	// 获取所有唯一的优先级
 	uniquePriorities := make(map[int]bool)
 	for _, channel := range channels {
 		uniquePriorities[int(channel.GetPriority())] = true
 	}
+
+	// 将优先级从高到低排序
 	var sortedUniquePriorities []int
 	for priority := range uniquePriorities {
 		sortedUniquePriorities = append(sortedUniquePriorities, priority)
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
 
+	// 根据重试次数确定目标优先级
 	if retry >= len(uniquePriorities) {
 		retry = len(uniquePriorities) - 1
 	}
@@ -181,29 +214,10 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	for _, channel := range targetChannels {
 		randomWeight -= channel.GetWeight() + smoothingFactor
 		if randomWeight < 0 {
-			channelModels := channel.GetModels()
-			if !usingGlobalModelMapping || common.StringsContains(channelModels, model) {
-				return channel, nil
-			}
-
-			acceptableModels := common.StringsIntersection(channelModels, targetModels)
-			if len(acceptableModels) == 0 {
-				return nil, errors.New("no acceptable model left after global model mapping")
-			}
-			// 不修改原 channel，复制一份
-			copyChannel := *channel
-			modelMap := make(map[string]string)
-			err := json.Unmarshal([]byte(copyChannel.GetModelMapping()), &modelMap)
-			if err != nil {
-				return nil, fmt.Errorf("unmarshal_model_mapping_failed")
-			}
-			modelMap[model] = acceptableModels[rand.Intn(len(acceptableModels))]
-			modelMappingBytes, _ := json.Marshal(modelMap)
-			copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
-			return &copyChannel, nil
+			return channel, nil
 		}
 	}
-	// return null if no channel is not found
+
 	return nil, errors.New("channel not found")
 }
 
