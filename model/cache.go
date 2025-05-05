@@ -82,32 +82,64 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 		model = "gpt-4o-gizmo-*"
 	}
 
+	// 尝试从全局模型重定向里把传入 model 替换为等效模型 targetModels，然后参与渠道匹配
+	var (
+		targetModels            []string
+		usingGlobalModelMapping bool
+	)
+	if len(model_setting.GetGlobalSettings().ModelMapping) > 0 && len(model_setting.GetGlobalSettings().ModelMapping[model]) > 0 {
+		usingGlobalModelMapping = true
+		targetModels = model_setting.GetGlobalSettings().ModelMapping[model]
+	} else {
+		usingGlobalModelMapping = false
+		targetModels = []string{model}
+	}
+
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
-		// 尝试从全局模型重定向里把传入 model 替换为等效模型，然后参与渠道匹配
-		// 理论上，MemoryCacheEnabled 模式也可以实现类似逻辑，但我用不上，先只实现非 MemoryCacheEnabled 模式
-		globalModelSettings := model_setting.GetGlobalSettings()
-		if len(globalModelSettings.ModelMapping) > 0 {
-			if eqModels, ok := globalModelSettings.ModelMapping[model]; ok && len(eqModels) > 0 {
-				channel, ability, err := GetRandomSatisfiedChannel(group, eqModels, retry)
-				if err != nil {
-					return channel, err
-				}
+		if usingGlobalModelMapping {
+			channel, ability, err := GetRandomSatisfiedChannel(group, targetModels, retry)
+			if err != nil {
+				return channel, err
+			}
 
+			if model != ability.Model {
 				modelMap := make(map[string]string)
-				_ = json.Unmarshal([]byte(channel.GetModelMapping()), &modelMap)
+				err := json.Unmarshal([]byte(channel.GetModelMapping()), &modelMap)
+				if err != nil {
+					return nil, fmt.Errorf("unmarshal_model_mapping_failed")
+				}
 				modelMap[model] = ability.Model
 				modelMappingBytes, _ := json.Marshal(modelMap)
 				channel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
-				return channel, nil
 			}
+			return channel, nil
 		}
-		channel, _, err := GetRandomSatisfiedChannel(group, []string{model}, retry)
+		channel, _, err := GetRandomSatisfiedChannel(group, targetModels, retry)
 		return channel, err
 	}
+
 	channelSyncLock.RLock()
 	defer channelSyncLock.RUnlock()
-	channels := group2model2channels[group][model]
+	var channels []*Channel
+	if usingGlobalModelMapping {
+		for _, targetModel := range targetModels {
+			channels = append(channels, group2model2channels[group][targetModel]...)
+		}
+		// 去重
+		uniqueChannels := make(map[int]*Channel)
+		for _, channel := range channels {
+			if uniqueChannels[channel.Id] == nil {
+				uniqueChannels[channel.Id] = channel
+			}
+		}
+		channels = make([]*Channel, 0, len(uniqueChannels))
+		for _, channel := range uniqueChannels {
+			channels = append(channels, channel)
+		}
+	} else {
+		channels = group2model2channels[group][model]
+	}
 	if len(channels) == 0 {
 		return nil, errors.New("channel not found")
 	}
@@ -149,7 +181,26 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	for _, channel := range targetChannels {
 		randomWeight -= channel.GetWeight() + smoothingFactor
 		if randomWeight < 0 {
-			return channel, nil
+			channelModels := channel.GetModels()
+			if !usingGlobalModelMapping || common.StringsContains(channelModels, model) {
+				return channel, nil
+			}
+
+			acceptableModels := common.StringsIntersection(channelModels, targetModels)
+			if len(acceptableModels) == 0 {
+				return nil, errors.New("no acceptable model left after global model mapping")
+			}
+			// 不修改原 channel，复制一份
+			copyChannel := *channel
+			modelMap := make(map[string]string)
+			err := json.Unmarshal([]byte(copyChannel.GetModelMapping()), &modelMap)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshal_model_mapping_failed")
+			}
+			modelMap[model] = acceptableModels[rand.Intn(len(acceptableModels))]
+			modelMappingBytes, _ := json.Marshal(modelMap)
+			copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
+			return &copyChannel, nil
 		}
 	}
 	// return null if no channel is not found

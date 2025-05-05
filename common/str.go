@@ -68,3 +68,18 @@ func StringToByteSlice(s string) []byte {
 	tmp2 := [3]uintptr{tmp1[0], tmp1[1], tmp1[1]}
 	return *(*[]byte)(unsafe.Pointer(&tmp2))
 }
+
+// StringsIntersection returns the intersection of two string slices
+func StringsIntersection(a []string, b []string) []string {
+	m := make(map[string]struct{})
+	for _, v := range a {
+		m[v] = struct{}{}
+	}
+	var c []string
+	for _, v := range b {
+		if _, ok := m[v]; ok {
+			c = append(c, v)
+		}
+	}
+	return c
+}

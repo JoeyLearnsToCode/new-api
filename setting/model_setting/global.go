@@ -12,9 +12,7 @@ type GlobalSettings struct {
 // 默认配置
 var defaultOpenaiSettings = GlobalSettings{
 	PassThroughRequestEnabled: false,
-	ModelMapping: map[string][]string{
-		"my-favorite-model": {"o3-mini", "o4-mini"},
-	},
+	ModelMapping:              map[string][]string{},
 }
 
 // 全局实例
