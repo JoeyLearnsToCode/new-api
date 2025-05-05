@@ -120,7 +120,6 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	}
 
 	channelSyncLock.RLock()
-	defer channelSyncLock.RUnlock()
 	var channels []*Channel
 	if usingGlobalModelMapping {
 		for _, targetModel := range targetModels {
@@ -140,6 +139,7 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	} else {
 		channels = group2model2channels[group][model]
 	}
+	channelSyncLock.RUnlock()
 	if len(channels) == 0 {
 		return nil, errors.New("channel not found")
 	}
