@@ -103,6 +103,10 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 				return channel, err
 			}
 
+			if common.StringsContains(channel.GetModels(), model) && common.StringsContains(targetModels, model) {
+				return channel, nil
+			}
+
 			if model != ability.Model {
 				modelMap := make(map[string]string)
 				err := json.Unmarshal([]byte(channel.GetModelMapping()), &modelMap)
