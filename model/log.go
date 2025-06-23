@@ -1,8 +1,10 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"one-api/common"
+	"one-api/constant"
 	"os"
 	"strings"
 	"time"
@@ -31,6 +33,7 @@ type Log struct {
 	ChannelName      string `json:"channel_name" gorm:"->"`
 	TokenId          int    `json:"token_id" gorm:"default:0;index"`
 	Group            string `json:"group" gorm:"index"`
+	Ip               string `json:"ip" gorm:"index;default:''"`
 	Other            string `json:"other"`
 }
 
@@ -40,6 +43,7 @@ const (
 	LogTypeConsume
 	LogTypeManage
 	LogTypeSystem
+	LogTypeError
 )
 
 func formatUserLogs(logs []*Log) {
@@ -59,7 +63,7 @@ func formatUserLogs(logs []*Log) {
 func GetLogByKey(key string) (logs []*Log, err error) {
 	if os.Getenv("LOG_SQL_DSN") != "" {
 		var tk Token
-		if err = DB.Model(&Token{}).Where(keyCol+"=?", strings.TrimPrefix(key, "sk-")).First(&tk).Error; err != nil {
+		if err = DB.Model(&Token{}).Where(logKeyCol+"=?", strings.TrimPrefix(key, "sk-")).First(&tk).Error; err != nil {
 			return nil, err
 		}
 		err = LOG_DB.Model(&Log{}).Where("token_id=?", tk.Id).Find(&logs).Error
@@ -88,6 +92,50 @@ func RecordLog(userId int, logType int, content string) {
 	}
 }
 
+func RecordErrorLog(c *gin.Context, userId int, channelId int, modelName string, tokenName string, content string, tokenId int, useTimeSeconds int,
+	isStream bool, group string, other map[string]interface{}) {
+	common.LogInfo(c, fmt.Sprintf("record error log: userId=%d, channelId=%d, modelName=%s, tokenName=%s, content=%s", userId, channelId, modelName, tokenName, content))
+	username := c.GetString("username")
+	otherStr := common.MapToJsonStr(other)
+	// 判断是否需要记录 IP
+	needRecordIp := false
+	if settingMap, err := GetUserSetting(userId, false); err == nil {
+		if v, ok := settingMap[constant.UserSettingRecordIpLog]; ok {
+			if vb, ok := v.(bool); ok && vb {
+				needRecordIp = true
+			}
+		}
+	}
+	log := &Log{
+		UserId:           userId,
+		Username:         username,
+		CreatedAt:        common.GetTimestamp(),
+		Type:             LogTypeError,
+		Content:          content,
+		PromptTokens:     0,
+		CompletionTokens: 0,
+		TokenName:        tokenName,
+		ModelName:        modelName,
+		Quota:            0,
+		ChannelId:        channelId,
+		TokenId:          tokenId,
+		UseTime:          useTimeSeconds,
+		IsStream:         isStream,
+		Group:            group,
+		Ip: func() string {
+			if needRecordIp {
+				return c.ClientIP()
+			}
+			return ""
+		}(),
+		Other: otherStr,
+	}
+	err := LOG_DB.Create(log).Error
+	if err != nil {
+		common.LogError(c, "failed to record log: "+err.Error())
+	}
+}
+
 func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens int, completionTokens int,
 	modelName string, tokenName string, quota int, content string, tokenId int, userQuota int, useTimeSeconds int,
 	isStream bool, group string, other map[string]interface{}) {
@@ -97,6 +145,15 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 	}
 	username := c.GetString("username")
 	otherStr := common.MapToJsonStr(other)
+	// 判断是否需要记录 IP
+	needRecordIp := false
+	if settingMap, err := GetUserSetting(userId, false); err == nil {
+		if v, ok := settingMap[constant.UserSettingRecordIpLog]; ok {
+			if vb, ok := v.(bool); ok && vb {
+				needRecordIp = true
+			}
+		}
+	}
 	log := &Log{
 		UserId:           userId,
 		Username:         username,
@@ -113,7 +170,13 @@ func RecordConsumeLog(c *gin.Context, userId int, channelId int, promptTokens in
 		UseTime:          useTimeSeconds,
 		IsStream:         isStream,
 		Group:            group,
-		Other:            otherStr,
+		Ip: func() string {
+			if needRecordIp {
+				return c.ClientIP()
+			}
+			return ""
+		}(),
+		Other: otherStr,
 	}
 	err := LOG_DB.Create(log).Error
 	if err != nil {
@@ -153,7 +216,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		tx = tx.Where("logs.channel_id = ?", channel)
 	}
 	if group != "" {
-		tx = tx.Where("logs."+groupCol+" = ?", group)
+		tx = tx.Where("logs."+logGroupCol+" = ?", group)
 	}
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
@@ -164,12 +227,17 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		return nil, 0, err
 	}
 
-	channelIds := make([]int, 0)
+	channelIdsMap := make(map[int]struct{})
 	channelMap := make(map[int]string)
 	for _, log := range logs {
 		if log.ChannelId != 0 {
-			channelIds = append(channelIds, log.ChannelId)
+			channelIdsMap[log.ChannelId] = struct{}{}
 		}
+	}
+
+	channelIds := make([]int, 0, len(channelIdsMap))
+	for channelId := range channelIdsMap {
+		channelIds = append(channelIds, channelId)
 	}
 	if len(channelIds) > 0 {
 		var channels []struct {
@@ -211,7 +279,7 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 		tx = tx.Where("logs.created_at <= ?", endTimestamp)
 	}
 	if group != "" {
-		tx = tx.Where("logs."+groupCol+" = ?", group)
+		tx = tx.Where("logs."+logGroupCol+" = ?", group)
 	}
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
@@ -272,8 +340,8 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		rpmTpmQuery = rpmTpmQuery.Where("channel_id = ?", channel)
 	}
 	if group != "" {
-		tx = tx.Where(groupCol+" = ?", group)
-		rpmTpmQuery = rpmTpmQuery.Where(groupCol+" = ?", group)
+		tx = tx.Where(logGroupCol+" = ?", group)
+		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
 	}
 
 	tx = tx.Where("type = ?", LogTypeConsume)
@@ -310,7 +378,25 @@ func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	return token
 }
 
-func DeleteOldLog(targetTimestamp int64) (int64, error) {
-	result := LOG_DB.Where("created_at < ?", targetTimestamp).Delete(&Log{})
-	return result.RowsAffected, result.Error
+func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {
+	var total int64 = 0
+
+	for {
+		if nil != ctx.Err() {
+			return total, ctx.Err()
+		}
+
+		result := LOG_DB.Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
+		if nil != result.Error {
+			return total, result.Error
+		}
+
+		total += result.RowsAffected
+
+		if result.RowsAffected < int64(limit) {
+			break
+		}
+	}
+
+	return total, nil
 }

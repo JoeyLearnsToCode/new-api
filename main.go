@@ -12,7 +12,7 @@ import (
 	"one-api/model"
 	"one-api/router"
 	"one-api/service"
-	"one-api/setting/operation_setting"
+	"one-api/setting/ratio_setting"
 	"os"
 	"strconv"
 
@@ -74,11 +74,13 @@ func main() {
 	}
 
 	// Initialize model settings
-	operation_setting.InitModelSettings()
+	ratio_setting.InitRatioSettings()
 	// Initialize constants
 	constant.InitEnv()
 	// Initialize options
 	model.InitOptionMap()
+
+	service.InitTokenEncoders()
 
 	if common.RedisEnabled {
 		// for compatibility with old versions
@@ -87,12 +89,27 @@ func main() {
 	if common.MemoryCacheEnabled {
 		common.SysLog("memory cache enabled")
 		common.SysError(fmt.Sprintf("sync frequency: %d seconds", common.SyncFrequency))
-		model.InitChannelCache()
-	}
-	if common.MemoryCacheEnabled {
-		go model.SyncOptions(common.SyncFrequency)
+
+		// Add panic recovery and retry for InitChannelCache
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					common.SysError(fmt.Sprintf("InitChannelCache panic: %v, retrying once", r))
+					// Retry once
+					_, fixErr := model.FixAbility()
+					if fixErr != nil {
+						common.SysError(fmt.Sprintf("InitChannelCache failed: %s", fixErr.Error()))
+					}
+				}
+			}()
+			model.InitChannelCache()
+		}()
+
 		go model.SyncChannelCache(common.SyncFrequency)
 	}
+
+	// 热更新配置
+	go model.SyncOptions(common.SyncFrequency)
 
 	// 数据看板
 	go model.UpdateQuotaData()
@@ -132,8 +149,6 @@ func main() {
 		go common.Monitor()
 		common.SysLog("pprof enabled")
 	}
-
-	service.InitTokenEncoders()
 
 	// Initialize HTTP server
 	server := gin.New()

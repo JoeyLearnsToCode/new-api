@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/shopspring/decimal"
 	"io"
 	"net/http"
 	"one-api/common"
 	"one-api/model"
 	"one-api/service"
+	"one-api/setting"
 	"strconv"
 	"time"
 
@@ -106,6 +108,13 @@ type DeepSeekUsageResponse struct {
 		GrantedBalance  string `json:"granted_balance"`
 		ToppedUpBalance string `json:"topped_up_balance"`
 	} `json:"balance_infos"`
+}
+
+type OpenRouterCreditResponse struct {
+	Data struct {
+		TotalCredits float64 `json:"total_credits"`
+		TotalUsage   float64 `json:"total_usage"`
+	} `json:"data"`
 }
 
 // GetAuthHeader get auth header
@@ -281,6 +290,56 @@ func updateChannelAIGC2DBalance(channel *model.Channel) (float64, error) {
 	return response.TotalAvailable, nil
 }
 
+func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
+	url := "https://openrouter.ai/api/v1/credits"
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	if err != nil {
+		return 0, err
+	}
+	response := OpenRouterCreditResponse{}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return 0, err
+	}
+	balance := response.Data.TotalCredits - response.Data.TotalUsage
+	channel.UpdateBalance(balance)
+	return balance, nil
+}
+
+func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
+	url := "https://api.moonshot.cn/v1/users/me/balance"
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	if err != nil {
+		return 0, err
+	}
+
+	type MoonshotBalanceData struct {
+		AvailableBalance float64 `json:"available_balance"`
+		VoucherBalance   float64 `json:"voucher_balance"`
+		CashBalance      float64 `json:"cash_balance"`
+	}
+
+	type MoonshotBalanceResponse struct {
+		Code   int                 `json:"code"`
+		Data   MoonshotBalanceData `json:"data"`
+		Scode  string              `json:"scode"`
+		Status bool                `json:"status"`
+	}
+
+	response := MoonshotBalanceResponse{}
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return 0, err
+	}
+	if !response.Status || response.Code != 0 {
+		return 0, fmt.Errorf("failed to update moonshot balance, status: %v, code: %d, scode: %s", response.Status, response.Code, response.Scode)
+	}
+	availableBalanceCny := response.Data.AvailableBalance
+	availableBalanceUsd := decimal.NewFromFloat(availableBalanceCny).Div(decimal.NewFromFloat(setting.Price)).InexactFloat64()
+	channel.UpdateBalance(availableBalanceUsd)
+	return availableBalanceUsd, nil
+}
+
 func updateChannelBalance(channel *model.Channel) (float64, error) {
 	baseURL := common.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() == "" {
@@ -307,6 +366,10 @@ func updateChannelBalance(channel *model.Channel) (float64, error) {
 		return updateChannelSiliconFlowBalance(channel)
 	case common.ChannelTypeDeepSeek:
 		return updateChannelDeepSeekBalance(channel)
+	case common.ChannelTypeOpenRouter:
+		return updateChannelOpenRouterBalance(channel)
+	case common.ChannelTypeMoonshot:
+		return updateChannelMoonshotBalance(channel)
 	default:
 		return 0, errors.New("尚未实现")
 	}

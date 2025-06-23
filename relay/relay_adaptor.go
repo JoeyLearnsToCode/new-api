@@ -10,6 +10,7 @@ import (
 	"one-api/relay/channel/claude"
 	"one-api/relay/channel/cloudflare"
 	"one-api/relay/channel/cohere"
+	"one-api/relay/channel/coze"
 	"one-api/relay/channel/deepseek"
 	"one-api/relay/channel/dify"
 	"one-api/relay/channel/gemini"
@@ -21,6 +22,7 @@ import (
 	"one-api/relay/channel/palm"
 	"one-api/relay/channel/perplexity"
 	"one-api/relay/channel/siliconflow"
+	"one-api/relay/channel/task/kling"
 	"one-api/relay/channel/task/suno"
 	"one-api/relay/channel/tencent"
 	"one-api/relay/channel/vertex"
@@ -88,6 +90,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &openai.Adaptor{}
 	case constant.APITypeXai:
 		return &xai.Adaptor{}
+	case constant.APITypeCoze:
+		return &coze.Adaptor{}
 	}
 	return nil
 }
@@ -98,6 +102,8 @@ func GetTaskAdaptor(platform commonconstant.TaskPlatform) channel.TaskAdaptor {
 	//	return &aiproxy.Adaptor{}
 	case commonconstant.TaskPlatformSuno:
 		return &suno.TaskAdaptor{}
+	case commonconstant.TaskPlatformKling:
+		return &kling.TaskAdaptor{}
 	}
 	return nil
 }

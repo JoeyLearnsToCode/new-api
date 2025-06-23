@@ -15,7 +15,7 @@ import (
 	relayconstant "one-api/relay/constant"
 	"one-api/service"
 	"one-api/setting"
-	"one-api/setting/operation_setting"
+	"one-api/setting/ratio_setting"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +32,23 @@ func RelayMidjourneyImage(c *gin.Context) {
 		})
 		return
 	}
-	resp, err := http.Get(midjourneyTask.ImageUrl)
+	var httpClient *http.Client
+	if channel, err := model.CacheGetChannel(midjourneyTask.ChannelId); err == nil {
+		if proxy, ok := channel.GetSetting()["proxy"]; ok {
+			if proxyURL, ok := proxy.(string); ok && proxyURL != "" {
+				if httpClient, err = service.NewProxyHttpClient(proxyURL); err != nil {
+					c.JSON(400, gin.H{
+						"error": "proxy_url_invalid",
+					})
+					return
+				}
+			}
+		}
+	}
+	if httpClient == nil {
+		httpClient = service.GetHttpClient()
+	}
+	resp, err := httpClient.Get(midjourneyTask.ImageUrl)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "http_get_image_failed",
@@ -158,17 +174,17 @@ func RelaySwapFace(c *gin.Context) *dto.MidjourneyResponse {
 		return service.MidjourneyErrorWrapper(constant.MjRequestError, "sour_base64_and_target_base64_is_required")
 	}
 	modelName := service.CoverActionToModelName(constant.MjActionSwapFace)
-	modelPrice, success := operation_setting.GetModelPrice(modelName, true)
+	modelPrice, success := ratio_setting.GetModelPrice(modelName, true)
 	// 如果没有配置价格，则使用默认价格
 	if !success {
-		defaultPrice, ok := operation_setting.GetDefaultModelRatioMap()[modelName]
+		defaultPrice, ok := ratio_setting.GetDefaultModelRatioMap()[modelName]
 		if !ok {
 			modelPrice = 0.1
 		} else {
 			modelPrice = defaultPrice
 		}
 	}
-	groupRatio := setting.GetGroupRatio(group)
+	groupRatio := ratio_setting.GetGroupRatio(group)
 	ratio := modelPrice * groupRatio
 	userQuota, err := model.GetUserQuota(userId, false)
 	if err != nil {
@@ -464,17 +480,17 @@ func RelayMidjourneySubmit(c *gin.Context, relayMode int) *dto.MidjourneyRespons
 	fullRequestURL := fmt.Sprintf("%s%s", baseURL, requestURL)
 
 	modelName := service.CoverActionToModelName(midjRequest.Action)
-	modelPrice, success := operation_setting.GetModelPrice(modelName, true)
+	modelPrice, success := ratio_setting.GetModelPrice(modelName, true)
 	// 如果没有配置价格，则使用默认价格
 	if !success {
-		defaultPrice, ok := operation_setting.GetDefaultModelRatioMap()[modelName]
+		defaultPrice, ok := ratio_setting.GetDefaultModelRatioMap()[modelName]
 		if !ok {
 			modelPrice = 0.1
 		} else {
 			modelPrice = defaultPrice
 		}
 	}
-	groupRatio := setting.GetGroupRatio(group)
+	groupRatio := ratio_setting.GetGroupRatio(group)
 	ratio := modelPrice * groupRatio
 	userQuota, err := model.GetUserQuota(userId, false)
 	if err != nil {

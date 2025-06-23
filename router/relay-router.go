@@ -1,15 +1,17 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
 	"one-api/controller"
 	"one-api/middleware"
 	"one-api/relay"
+
+	"github.com/gin-gonic/gin"
 )
 
 func SetRelayRouter(router *gin.Engine) {
 	router.Use(middleware.CORS())
 	router.Use(middleware.DecompressRequestMiddleware())
+	router.Use(middleware.StatsMiddleware())
 	// https://platform.openai.com/docs/api-reference/introduction
 	modelsRouter := router.Group("/v1/models")
 	modelsRouter.Use(middleware.TokenAuth())
@@ -40,13 +42,14 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.POST("/chat/completions", controller.Relay)
 		httpRouter.POST("/edits", controller.Relay)
 		httpRouter.POST("/images/generations", controller.Relay)
-		httpRouter.POST("/images/edits", controller.RelayNotImplemented)
+		httpRouter.POST("/images/edits", controller.Relay)
 		httpRouter.POST("/images/variations", controller.RelayNotImplemented)
 		httpRouter.POST("/embeddings", controller.Relay)
 		httpRouter.POST("/engines/:model/embeddings", controller.Relay)
 		httpRouter.POST("/audio/transcriptions", controller.Relay)
 		httpRouter.POST("/audio/translations", controller.Relay)
 		httpRouter.POST("/audio/speech", controller.Relay)
+		httpRouter.POST("/responses", controller.Relay)
 		httpRouter.GET("/files", controller.RelayNotImplemented)
 		httpRouter.POST("/files", controller.RelayNotImplemented)
 		httpRouter.DELETE("/files/:id", controller.RelayNotImplemented)
@@ -77,6 +80,14 @@ func SetRelayRouter(router *gin.Engine) {
 		relaySunoRouter.GET("/fetch/:id", controller.RelayTask)
 	}
 
+	relayGeminiRouter := router.Group("/v1beta")
+	relayGeminiRouter.Use(middleware.TokenAuth())
+	relayGeminiRouter.Use(middleware.ModelRequestRateLimit())
+	relayGeminiRouter.Use(middleware.Distribute())
+	{
+		// Gemini API 路径格式: /v1beta/models/{model_name}:{action}
+		relayGeminiRouter.POST("/models/*path", controller.Relay)
+	}
 }
 
 func registerMjRouterGroup(relayMjRouter *gin.RouterGroup) {

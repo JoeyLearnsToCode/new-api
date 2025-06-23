@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/samber/lo"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
@@ -14,6 +15,7 @@ import (
 	"one-api/relay/channel/moonshot"
 	relaycommon "one-api/relay/common"
 	relayconstant "one-api/relay/constant"
+	"one-api/setting"
 	"one-api/setting/model_setting"
 
 	"github.com/gin-gonic/gin"
@@ -136,6 +138,9 @@ func init() {
 		adaptor.Init(meta)
 		channelId2Models[i] = adaptor.GetModelList()
 	}
+	openAIModels = lo.UniqBy(openAIModels, func(m dto.OpenAIModels) string {
+		return m.Id
+	})
 }
 
 func ListModels(c *gin.Context) {
@@ -181,7 +186,19 @@ func ListModels(c *gin.Context) {
 		if tokenGroup != "" {
 			group = tokenGroup
 		}
-		models := model.GetGroupModels(group)
+		var models []string
+		if tokenGroup == "auto" {
+			for _, autoGroup := range setting.AutoGroups {
+				groupModels := model.GetGroupModels(autoGroup)
+				for _, g := range groupModels {
+					if !common.StringsContains(models, g) {
+						models = append(models, g)
+					}
+				}
+			}
+		} else {
+			models = model.GetGroupModels(group)
+		}
 		for _, s := range models {
 			if _, ok := openAIModelsMap[s]; ok {
 				userOpenAiModels = append(userOpenAiModels, openAIModelsMap[s])
