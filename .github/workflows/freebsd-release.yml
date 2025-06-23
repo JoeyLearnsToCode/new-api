@@ -17,17 +17,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 18
+          bun-version: latest
 
       - name: Build Frontend
         env:
-          CI: \"\"
+          CI: ""
         run: |
           cd web
-          npm install
-          REACT_APP_VERSION=$(git describe --tags) npm run build
+          bun install
+          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags) bun run build
           cd ..
 
       - name: Set up Go
