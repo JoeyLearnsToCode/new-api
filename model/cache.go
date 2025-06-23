@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"math/rand"
 	"one-api/common"
+	"one-api/setting"
 	"one-api/setting/model_setting"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 var group2model2channels map[string]map[string][]*Channel
@@ -18,6 +21,9 @@ var channelsIDM map[int]*Channel
 var channelSyncLock sync.RWMutex
 
 func InitChannelCache() {
+	if !common.MemoryCacheEnabled {
+		return
+	}
 	newChannelId2channel := make(map[int]*Channel)
 	var channels []*Channel
 	DB.Where("status = ?", common.ChannelStatusEnabled).Find(&channels)
@@ -74,7 +80,43 @@ func SyncChannelCache(frequency int) {
 	}
 }
 
-func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
+func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, retry int) (*Channel, string, error) {
+	var channel *Channel
+	var err error
+	selectGroup := group
+	if group == "auto" {
+		if len(setting.AutoGroups) == 0 {
+			return nil, selectGroup, errors.New("auto groups is not enabled")
+		}
+		for _, autoGroup := range setting.AutoGroups {
+			if common.DebugEnabled {
+				println("autoGroup:", autoGroup)
+			}
+			channel, _ = getRandomSatisfiedChannel(autoGroup, model, retry)
+			if channel == nil {
+				continue
+			} else {
+				c.Set("auto_group", autoGroup)
+				selectGroup = autoGroup
+				if common.DebugEnabled {
+					println("selectGroup:", selectGroup)
+				}
+				break
+			}
+		}
+	} else {
+		channel, err = getRandomSatisfiedChannel(group, model, retry)
+		if err != nil {
+			return nil, group, err
+		}
+	}
+	if channel == nil {
+		return nil, group, errors.New("channel not found")
+	}
+	return channel, selectGroup, nil
+}
+
+func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
 	if strings.HasPrefix(model, "gpt-4-gizmo") {
 		model = "gpt-4-gizmo-*"
 	}
@@ -108,11 +150,7 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 			}
 
 			if model != ability.Model {
-				modelMap := make(map[string]string)
-				err := json.Unmarshal([]byte(channel.GetModelMapping()), &modelMap)
-				if err != nil {
-					return nil, fmt.Errorf("unmarshal_model_mapping_failed")
-				}
+				modelMap := channel.MustGetModelMappingMap()
 				modelMap[model] = ability.Model
 				modelMappingBytes, _ := json.Marshal(modelMap)
 				channel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
@@ -164,11 +202,7 @@ func CacheGetRandomSatisfiedChannel(group string, model string, retry int) (*Cha
 	}
 	// 不修改原channel，复制一份
 	copyChannel := *selectedChannel
-	modelMap := make(map[string]string)
-	err = json.Unmarshal([]byte(copyChannel.GetModelMapping()), &modelMap)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal_model_mapping_failed")
-	}
+	modelMap := copyChannel.MustGetModelMappingMap()
 	modelMap[model] = acceptableModels[rand.Intn(len(acceptableModels))]
 	modelMappingBytes, _ := json.Marshal(modelMap)
 	copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
