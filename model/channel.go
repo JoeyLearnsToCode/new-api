@@ -305,6 +305,18 @@ func (channel *Channel) Delete() error {
 	return err
 }
 
+func (channel *Channel) MustGetModelMappingMap() map[string]string {
+	modelMapping := make(map[string]string)
+	modelMappingStr := strings.TrimSpace(channel.GetModelMapping())
+	if modelMappingStr != "" {
+		err := json.Unmarshal([]byte(modelMappingStr), &modelMapping)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return modelMapping
+}
+
 var channelStatusLock sync.Mutex
 
 func UpdateChannelStatusById(id int, status int, reason string) bool {

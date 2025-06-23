@@ -150,11 +150,7 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 			}
 
 			if model != ability.Model {
-				modelMap := make(map[string]string)
-				err := json.Unmarshal([]byte(channel.GetModelMapping()), &modelMap)
-				if err != nil {
-					return nil, fmt.Errorf("unmarshal_model_mapping_failed")
-				}
+				modelMap := channel.MustGetModelMappingMap()
 				modelMap[model] = ability.Model
 				modelMappingBytes, _ := json.Marshal(modelMap)
 				channel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
@@ -206,11 +202,7 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	}
 	// 不修改原channel，复制一份
 	copyChannel := *selectedChannel
-	modelMap := make(map[string]string)
-	err = json.Unmarshal([]byte(copyChannel.GetModelMapping()), &modelMap)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal_model_mapping_failed")
-	}
+	modelMap := copyChannel.MustGetModelMappingMap()
 	modelMap[model] = acceptableModels[rand.Intn(len(acceptableModels))]
 	modelMappingBytes, _ := json.Marshal(modelMap)
 	copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
