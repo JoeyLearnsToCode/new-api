@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"math/rand"
 	"strconv"
@@ -82,4 +83,16 @@ func StringsIntersection(a []string, b []string) []string {
 		}
 	}
 	return c
+}
+
+func EncodeBase64(str string) string {
+	return base64.StdEncoding.EncodeToString([]byte(str))
+}
+
+func GetJsonString(data any) string {
+	if data == nil {
+		return ""
+	}
+	b, _ := json.Marshal(data)
+	return string(b)
 }
