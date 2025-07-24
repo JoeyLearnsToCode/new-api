@@ -11,7 +11,11 @@ import {
 import { useTranslation } from 'react-i18next';
 
 const GLOBAL_MODEL_MAPPING_EXAMPLE = {
-  'my-favorite-model': ['o3-mini', 'o4-mini'],
+  equivalents: [
+    ["model1", "model2", "model3"],
+    ["model4", "model5"]
+  ],
+  model6: ["model7", "model8"]
 };
 
 export default function SettingGlobalModel(props) {
@@ -101,7 +105,10 @@ export default function SettingGlobalModel(props) {
                 <Form.TextArea
                   label={t('全局模型重定向')}
                   placeholder={
-                    t('此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串，键为请求中模型名称，值为要替换的模型名称（数组），例如：') +
+                    t('此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串。') +
+                    t('单向映射：除 equivalents 外，其他键为请求中模型名称，值为要替换的底层模型名称（数组）。') +
+                    t('等效组：equivalents 为等效组，其中任意模型相互等效，优先级低于单向映射。') +
+                    t('例如') +
                     '\n' +
                     JSON.stringify(GLOBAL_MODEL_MAPPING_EXAMPLE, null, 2)
                   }
@@ -124,16 +131,16 @@ export default function SettingGlobalModel(props) {
                 />
               </Col>
             </Row>
-            
+
             <Form.Section text={t('连接保活设置')}>
-            <Row style={{ marginTop: 10 }}>
-                  <Col span={24}>
-                    <Banner 
-                      type="warning"
-                      description="警告：启用保活后，如果已经写入保活数据后渠道出错，系统无法重试，如果必须开启，推荐设置尽可能大的Ping间隔"
-                    />
-                  </Col>
-                </Row>
+              <Row style={{ marginTop: 10 }}>
+                <Col span={24}>
+                  <Banner
+                    type="warning"
+                    description="警告：启用保活后，如果已经写入保活数据后渠道出错，系统无法重试，如果必须开启，推荐设置尽可能大的Ping间隔"
+                  />
+                </Col>
+              </Row>
               <Row>
                 <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                   <Form.Switch

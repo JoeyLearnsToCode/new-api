@@ -87,26 +87,29 @@ func getPriority(group string, models []string, retry int) (int, error) {
 	return priorityToUse, nil
 }
 
-func getChannelQuery(group string, models []string, retry int) *gorm.DB {
+func getChannelQuery(group string, models []string, retry int) (*gorm.DB, error) {
 	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model in ? and enabled = ?", group, models, true)
 	channelQuery := DB.Where(commonGroupCol+" = ? and model in ? and enabled = ? and priority = (?)", group, models, true, maxPrioritySubQuery)
 	if retry != 0 {
 		priority, err := getPriority(group, models, retry)
 		if err != nil {
-			common.SysError(fmt.Sprintf("Get priority failed: %s", err.Error()))
+			return nil, err
 		} else {
 			channelQuery = DB.Where(commonGroupCol+" = ? and model in ? and enabled = ? and priority = ?", group, models, true, priority)
 		}
 	}
 
-	return channelQuery
+	return channelQuery, nil
 }
 
 func GetRandomSatisfiedChannel(group string, models []string, retry int) (*Channel, *Ability, error) {
 	var abilities []Ability
 
 	var err error = nil
-	channelQuery := getChannelQuery(group, models, retry)
+	channelQuery, err := getChannelQuery(group, models, retry)
+	if err != nil {
+		return nil, nil,err
+	}
 	if common.UsingSQLite || common.UsingPostgreSQL {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	} else {
