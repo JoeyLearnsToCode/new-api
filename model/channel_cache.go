@@ -130,9 +130,18 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		targetModels            []string
 		usingGlobalModelMapping bool
 	)
-	if len(model_setting.GetGlobalSettings().ModelMapping) > 0 && len(model_setting.GetGlobalSettings().ModelMapping[model]) > 0 {
+	globalModelMapping := model_setting.GetGlobalSettings().ModelMapping
+	if len(globalModelMapping.OneWayModelMappings) > 0 && len(globalModelMapping.OneWayModelMappings[model]) > 0 {
 		usingGlobalModelMapping = true
-		targetModels = model_setting.GetGlobalSettings().ModelMapping[model]
+		targetModels = globalModelMapping.OneWayModelMappings[model]
+	} else if len(globalModelMapping.Equivalents) > 0 {
+		for _, equivalent := range globalModelMapping.Equivalents {
+			if common.StringsContains(equivalent, model) {
+				usingGlobalModelMapping = true
+				targetModels = equivalent
+				break
+			}
+		}
 	} else {
 		usingGlobalModelMapping = false
 		targetModels = []string{model}

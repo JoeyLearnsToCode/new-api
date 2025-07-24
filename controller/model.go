@@ -175,12 +175,12 @@ func ListModels(c *gin.Context) {
 
 	// 把全局模型重定向中对用户可用的模型添加到 userOpenAiModels 中
 	globalModelMapping := model_setting.GetGlobalSettings().ModelMapping
-	if len(globalModelMapping) > 0 {
+	if len(globalModelMapping.OneWayModelMappings) > 0 {
 		existingUserModels := make(map[string]bool)
 		for _, model := range userOpenAiModels {
 			existingUserModels[model.Id] = true
 		}
-		for model, targetModels := range globalModelMapping {
+		for model, targetModels := range globalModelMapping.OneWayModelMappings {
 			if _, exists := existingUserModels[model]; exists {
 				continue
 			}
