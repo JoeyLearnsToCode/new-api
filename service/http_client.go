@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -30,8 +31,21 @@ func GetHttpClient() *http.Client {
 
 // NewProxyHttpClient 创建支持代理的 HTTP 客户端
 func NewProxyHttpClient(proxyURL string) (*http.Client, error) {
+	return NewCustomHttpClient(proxyURL, false)
+}
+
+// NewCustomHttpClient 创建自定义 HTTP 客户端，支持代理和跳过TLS验证
+func NewCustomHttpClient(proxyURL string, insecureSkipVerify bool) (*http.Client, error) {
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		},
+	}
+
 	if proxyURL == "" {
-		return http.DefaultClient, nil
+		return &http.Client{
+			Transport: transport,
+		}, nil
 	}
 
 	parsedURL, err := url.Parse(proxyURL)
@@ -41,10 +55,9 @@ func NewProxyHttpClient(proxyURL string) (*http.Client, error) {
 
 	switch parsedURL.Scheme {
 	case "http", "https":
+		transport.Proxy = http.ProxyURL(parsedURL)
 		return &http.Client{
-			Transport: &http.Transport{
-				Proxy: http.ProxyURL(parsedURL),
-			},
+			Transport: transport,
 		}, nil
 
 	case "socks5", "socks5h":
@@ -67,12 +80,12 @@ func NewProxyHttpClient(proxyURL string) (*http.Client, error) {
 			return nil, err
 		}
 
+		transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return dialer.Dial(network, addr)
+		}
+		
 		return &http.Client{
-			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					return dialer.Dial(network, addr)
-				},
-			},
+			Transport: transport,
 		}, nil
 
 	default:

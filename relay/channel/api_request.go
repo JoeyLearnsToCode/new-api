@@ -209,10 +209,10 @@ func DoRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http.Response, error) {
 	var client *http.Client
 	var err error
-	if info.ChannelSetting.Proxy != "" {
-		client, err = service.NewProxyHttpClient(info.ChannelSetting.Proxy)
+	if info.ChannelSetting.Proxy != "" || info.ChannelSetting.InsecureSkipVerify {
+		client, err = service.NewCustomHttpClient(info.ChannelSetting.Proxy, info.ChannelSetting.InsecureSkipVerify)
 		if err != nil {
-			return nil, fmt.Errorf("new proxy http client failed: %w", err)
+			return nil, fmt.Errorf("create http client failed: %w", err)
 		}
 	} else {
 		client = service.GetHttpClient()

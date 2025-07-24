@@ -1,0 +1,8 @@
+---
+description: Repo overview, read this when you are in agent mode
+globs: 
+alwaysApply: false
+---
+这个仓库是 https://github.com/QuantumNous/new-api 的分支仓库。
+
+在进行方案规划时，你可以通过 deepwiki-mcp 这个 MCP 来获取 QuantumNous/new-api 的项目文档，从而规划出更精准的方案。
