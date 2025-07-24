@@ -97,7 +97,7 @@ const EditChannel = (props) => {
     model_mapping: '',
     status_code_mapping: '',
     models: [],
-    auto_ban: 1,
+    auto_ban: true, // input 里的 auto_ban 类型应该是 bool
     test_model: '',
     groups: ['default'],
     priority: 0,
@@ -193,11 +193,18 @@ const EditChannel = (props) => {
         setInputs((inputs) => ({ ...inputs, models: localModels }));
       }
       setBasicModels(localModels);
-      
+
       // 重置手动输入模式状态
       setUseManualInput(false);
     }
-    //setAutoBan
+    if (name === 'setting') {
+      try {
+        const setting = JSON.parse(value);
+        setInputs((inputs) => ({ ...inputs, insecure_skip_verify: setting.insecure_skip_verify }));
+      } catch (e) {
+        console.debug('解析setting失败', value);
+      }
+    }
   };
 
   const loadChannel = async () => {
@@ -238,16 +245,11 @@ const EditChannel = (props) => {
         setBatch(false);
         setMultiToSingle(false);
       }
-      setInputs(data);
-      if (formApiRef.current) {
-        formApiRef.current.setValues(data);
-      }
-      if (data.auto_ban === 0) {
-        setAutoBan(false);
-      } else {
-        setAutoBan(true);
-      }
+      data.auto_ban = data.auto_ban !== 0;
+      setAutoBan(data.auto_ban);
+      data.insecure_skip_verify = data.setting && JSON.parse(data.setting || '{}').insecure_skip_verify;
       setBasicModels(getChannelModels(data.type));
+      setInputs(data);
       // console.log(data);
     } else {
       showError(message);
@@ -726,9 +728,9 @@ const EditChannel = (props) => {
       onClick,
       ...rest
     } = renderProps;
-    
+
     const searchWords = channelSearchValue ? [channelSearchValue] : [];
-    
+
     // 构建样式类名
     const optionClassName = [
       'flex items-center gap-3 px-3 py-2 transition-all duration-200 rounded-lg mx-2 my-1',
@@ -738,12 +740,12 @@ const EditChannel = (props) => {
       !disabled && 'hover:bg-gray-50 hover:shadow-md cursor-pointer',
       className
     ].filter(Boolean).join(' ');
-    
+
     return (
-      <div 
-        style={style} 
+      <div
+        style={style}
         className={optionClassName}
-        onClick={() => !disabled && onClick()} 
+        onClick={() => !disabled && onClick()}
         onMouseEnter={e => onMouseEnter()}
       >
         <div className="flex items-center gap-3 w-full">
@@ -751,8 +753,8 @@ const EditChannel = (props) => {
             {getChannelIcon(value)}
           </div>
           <div className="flex-1 min-w-0">
-            <Highlight 
-              sourceString={label} 
+            <Highlight
+              sourceString={label}
               searchWords={searchWords}
               className="text-sm font-medium truncate"
             />
@@ -926,7 +928,7 @@ const EditChannel = (props) => {
                               </Space>
                             </div>
                           )}
-                          
+
                           {batch && (
                             <Banner
                               type='info'
@@ -934,7 +936,7 @@ const EditChannel = (props) => {
                               className='!rounded-lg mb-3'
                             />
                           )}
-                          
+
                           {useManualInput && !batch ? (
                             <Form.TextArea
                               field='key'
@@ -1450,6 +1452,20 @@ const EditChannel = (props) => {
                       </Space>
                     )}
                     showClear
+                  />
+
+                  <Form.Switch
+                    field='insecure_skip_verify'
+                    label={t('不严格HTTPS')}
+                    checkedText={t('开')}
+                    uncheckedText={t('关')}
+                    onChange={(val) => {
+                      const setting = inputs.setting ? JSON.parse(inputs.setting || '{}') : {};
+                      setting.insecure_skip_verify = val;
+                      handleInputChange('setting', JSON.stringify(setting, null, 2));
+                    }}
+                    extraText={t('启用后不严格校验HTTPS证书，请谨慎')}
+                    initValue={false}
                   />
                 </Card>
               </div>
