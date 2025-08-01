@@ -142,8 +142,8 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 				break
 			}
 		}
-	} else {
-		usingGlobalModelMapping = false
+	}
+	if !usingGlobalModelMapping {
 		targetModels = []string{model}
 	}
 
