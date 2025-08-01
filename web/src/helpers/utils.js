@@ -538,3 +538,43 @@ export function setTableCompactMode(compact, tableKey = 'global') {
   modes[tableKey] = compact;
   writeTableCompactModes(modes);
 }
+
+// 去重并保持原始顺序
+export const deduplicateArraysInJson = (jsonString) => {
+  try {
+    const obj = JSON.parse(jsonString);
+
+    const processValue = (value) => {
+      if (Array.isArray(value)) {
+        // 检查数组首元素是否为字符串类型
+        if (value.length > 0 && typeof value[0] === 'string') {
+          // 使用Set去重并保持原始顺序
+          const seen = new Set();
+          return value.filter(item => {
+            if (seen.has(item)) {
+              return false;
+            }
+            seen.add(item);
+            return true;
+          });
+        }
+        // 递归处理数组中的每个元素
+        return value.map(item => processValue(item));
+      } else if (value !== null && typeof value === 'object') {
+        // 递归处理对象
+        const newObj = {};
+        for (const [key, val] of Object.entries(value)) {
+          newObj[key] = processValue(val);
+        }
+        return newObj;
+      }
+      return value;
+    };
+
+    const processedObj = processValue(obj);
+    return JSON.stringify(processedObj, null, 2);
+  } catch (error) {
+    // 如果JSON解析失败，返回原始字符串
+    return jsonString;
+  }
+};

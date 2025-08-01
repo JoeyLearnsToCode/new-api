@@ -7,6 +7,7 @@ import {
   showSuccess,
   showWarning,
   verifyJSON,
+  deduplicateArraysInJson
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
 
@@ -122,9 +123,10 @@ export default function SettingGlobalModel(props) {
                       message: t('不是合法的 JSON 字符串'),
                     },
                   ]}
-                  onChange={(value) =>
-                    setInputs({ ...inputs, 'global.model_mapping': value })
-                  }
+                  onChange={(value) => {
+                    const deduplicatedValue = deduplicateArraysInJson(value);
+                    setInputs({ ...inputs, 'global.model_mapping': deduplicatedValue });
+                  }}
                   extraText={
                     '在请求模型匹配键时，值（数组）中的模型将会被视为等效模型，从而参与渠道匹配'
                   }
