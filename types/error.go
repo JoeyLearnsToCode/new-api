@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"one-api/common"
 	"strings"
 )
 
@@ -103,6 +104,14 @@ func (e *NewAPIError) SetMessage(message string) {
 }
 
 func (e *NewAPIError) ToOpenAIError() OpenAIError {
+	if common.IsNil(e.RelayError) {
+		return OpenAIError{
+			Message: e.Error(),
+			Type:    string(e.ErrorType),
+			Param:   "",
+			Code:    e.errorCode,
+		}
+	}
 	switch e.ErrorType {
 	case ErrorTypeOpenAIError:
 		return e.RelayError.(OpenAIError)
