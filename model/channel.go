@@ -46,6 +46,9 @@ type Channel struct {
 	ParamOverride     *string `json:"param_override" gorm:"type:text"`
 	// add after v0.8.5
 	ChannelInfo ChannelInfo `json:"channel_info" gorm:"type:json"`
+
+	// cache info
+	Keys []string `json:"-" gorm:"-"`
 }
 
 type ChannelInfo struct {
@@ -71,11 +74,14 @@ func (channel *Channel) getKeys() []string {
 	if channel.Key == "" {
 		return []string{}
 	}
+	if len(channel.Keys) > 0 {
+		return channel.Keys
+	}
 	trimmed := strings.TrimSpace(channel.Key)
 	// If the key starts with '[', try to parse it as a JSON array (e.g., for Vertex AI scenarios)
 	if strings.HasPrefix(trimmed, "[") {
 		var arr []json.RawMessage
-		if err := json.Unmarshal([]byte(trimmed), &arr); err == nil {
+		if err := common.Unmarshal([]byte(trimmed), &arr); err == nil {
 			res := make([]string, len(arr))
 			for i, v := range arr {
 				res[i] = string(v)
@@ -138,7 +144,7 @@ func (channel *Channel) GetNextEnabledKey() (string, int, *types.NewAPIError) {
 
 		channelInfo, err := CacheGetChannelInfo(channel.Id)
 		if err != nil {
-			return "", 0, types.NewError(err, types.ErrorCodeGetChannelFailed)
+			return "", 0, types.NewError(err, types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 		}
 		//println("before polling index:", channel.ChannelInfo.MultiKeyPollingIndex)
 		defer func() {
@@ -197,7 +203,7 @@ func (channel *Channel) GetGroups() []string {
 func (channel *Channel) GetOtherInfo() map[string]interface{} {
 	otherInfo := make(map[string]interface{})
 	if channel.OtherInfo != "" {
-		err := json.Unmarshal([]byte(channel.OtherInfo), &otherInfo)
+		err := common.Unmarshal([]byte(channel.OtherInfo), &otherInfo)
 		if err != nil {
 			common.SysError("failed to unmarshal other info: " + err.Error())
 		}
@@ -425,7 +431,7 @@ func (channel *Channel) Update() error {
 			trimmed := strings.TrimSpace(keyStr)
 			if strings.HasPrefix(trimmed, "[") {
 				var arr []json.RawMessage
-				if err := json.Unmarshal([]byte(trimmed), &arr); err == nil {
+				if err := common.Unmarshal([]byte(trimmed), &arr); err == nil {
 					keys = make([]string, len(arr))
 					for i, v := range arr {
 						keys[i] = string(v)
@@ -569,10 +575,6 @@ func UpdateChannelStatus(channelId int, usingKey string, status int, reason stri
 		} else {
 			// 如果缓存渠道存在，且状态已是目标状态，直接返回
 			if channelCache.Status == status {
-				return false
-			}
-			// 如果缓存渠道不存在(说明已经被禁用)，且要设置的状态不为启用，直接返回
-			if status != common.ChannelStatusEnabled {
 				return false
 			}
 			CacheUpdateChannelStatus(channelId, status)
@@ -778,7 +780,7 @@ func SearchTags(keyword string, group string, model string, idSort bool) ([]*str
 func (channel *Channel) ValidateSettings() error {
 	channelParams := &dto.ChannelSettings{}
 	if channel.Setting != nil && *channel.Setting != "" {
-		err := json.Unmarshal([]byte(*channel.Setting), channelParams)
+		err := common.Unmarshal([]byte(*channel.Setting), channelParams)
 		if err != nil {
 			return err
 		}
@@ -789,7 +791,7 @@ func (channel *Channel) ValidateSettings() error {
 func (channel *Channel) GetSetting() dto.ChannelSettings {
 	setting := dto.ChannelSettings{}
 	if channel.Setting != nil && *channel.Setting != "" {
-		err := json.Unmarshal([]byte(*channel.Setting), &setting)
+		err := common.Unmarshal([]byte(*channel.Setting), &setting)
 		if err != nil {
 			common.SysError("failed to unmarshal setting: " + err.Error())
 			channel.Setting = nil // 清空设置以避免后续错误
@@ -800,7 +802,7 @@ func (channel *Channel) GetSetting() dto.ChannelSettings {
 }
 
 func (channel *Channel) SetSetting(setting dto.ChannelSettings) {
-	settingBytes, err := json.Marshal(setting)
+	settingBytes, err := common.Marshal(setting)
 	if err != nil {
 		common.SysError("failed to marshal setting: " + err.Error())
 		return
@@ -811,7 +813,7 @@ func (channel *Channel) SetSetting(setting dto.ChannelSettings) {
 func (channel *Channel) GetParamOverride() map[string]interface{} {
 	paramOverride := make(map[string]interface{})
 	if channel.ParamOverride != nil && *channel.ParamOverride != "" {
-		err := json.Unmarshal([]byte(*channel.ParamOverride), &paramOverride)
+		err := common.Unmarshal([]byte(*channel.ParamOverride), &paramOverride)
 		if err != nil {
 			common.SysError("failed to unmarshal param override: " + err.Error())
 		}
