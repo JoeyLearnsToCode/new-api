@@ -37,7 +37,7 @@ import {
   renderQuotaWithAmount
 } from '../../../helpers/index.js';
 import { CHANNEL_OPTIONS } from '../../../constants/index.js';
-import { IconTreeTriangleDown, IconMore } from '@douyinfe/semi-icons';
+import { IconTreeTriangleDown, IconMore, IconLink } from '@douyinfe/semi-icons';
 import { FaRandom } from 'react-icons/fa';
 
 // Render functions
@@ -222,6 +222,25 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.NAME,
       title: t('名称'),
       dataIndex: 'name',
+      render: (name) => {
+        const match = name.match(/^L-(\d+)$/);
+        if (match) {
+          const topicId = match[1];
+          return (
+            <Space spacing={5}>
+              <a
+                href={`https://linux.do/t/topic/${topicId}`}
+                target='_blank'
+                rel='noopener noreferrer'
+              >
+                <IconLink />
+              </a>
+              <Typography.Text>{name}</Typography.Text>
+            </Space>
+          );
+        }
+        return <Typography.Text>{name}</Typography.Text>;
+      },
     },
     {
       key: COLUMN_KEYS.GROUP,
