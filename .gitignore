@@ -12,3 +12,4 @@ one-api
 one-api-freebsd
 .DS_Store
 tiktoken_cache
+.eslintcache
