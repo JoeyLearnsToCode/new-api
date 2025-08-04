@@ -43,6 +43,7 @@ import {
   IconTreeTriangleDown,
   IconMore,
   IconAlertTriangle,
+  IconLink,
 } from '@douyinfe/semi-icons';
 import { FaRandom } from 'react-icons/fa';
 
@@ -246,6 +247,16 @@ export const getChannelsColumns = ({
       dataIndex: 'name',
       render: (text, record, index) => {
         const passThroughEnabled = isRequestPassThroughEnabled(record);
+        const match = text.match(/^L-(\d+)$/);
+        const linuxdoJump = match ? <Space spacing={5}>
+          <a
+            href={`https://linux.do/t/topic/${match[1]}`}
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            <IconLink />
+          </a>
+        </Space> : null;
         const nameNode =
           record.remark && record.remark.trim() !== '' ? (
             <Tooltip
@@ -275,10 +286,10 @@ export const getChannelsColumns = ({
               trigger='hover'
               position='topLeft'
             >
-              <span>{text}</span>
+              <span>{linuxdoJump} {text}</span>
             </Tooltip>
           ) : (
-            <span>{text}</span>
+              <span>{linuxdoJump} {text}</span>
           );
 
         if (!passThroughEnabled) {
