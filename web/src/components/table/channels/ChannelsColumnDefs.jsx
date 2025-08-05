@@ -247,7 +247,7 @@ export const getChannelsColumns = ({
       dataIndex: 'name',
       render: (text, record, index) => {
         const passThroughEnabled = isRequestPassThroughEnabled(record);
-        const match = text.match(/^L-(\d+)$/);
+        const match = text.match(/L[-_](\d+)/i);
         const linuxdoJump = match ? <Space spacing={5}>
           <a
             href={`https://linux.do/t/topic/${match[1]}`}
