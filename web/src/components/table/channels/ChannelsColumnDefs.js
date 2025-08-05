@@ -223,7 +223,7 @@ export const getChannelsColumns = ({
       title: t('名称'),
       dataIndex: 'name',
       render: (name) => {
-        const match = name.match(/^L-(\d+)$/);
+        const match = name.match(/L[-_](\d+)/i);
         if (match) {
           const topicId = match[1];
           return (
