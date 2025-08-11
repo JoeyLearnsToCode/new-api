@@ -9,6 +9,7 @@ import (
 	"one-api/constant"
 	"one-api/setting"
 	"one-api/setting/model_setting"
+	"one-api/setting/ratio_setting"
 	"sort"
 	"strings"
 	"sync"
@@ -72,7 +73,7 @@ func InitChannelCache() {
 	//channelsIDM = newChannelId2channel
 	for i, channel := range newChannelId2channel {
 		if channel.ChannelInfo.IsMultiKey {
-			channel.Keys = channel.getKeys()
+			channel.Keys = channel.GetKeys()
 			if channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
 				if oldChannel, ok := channelsIDM[i]; ok {
 					// 存在旧的渠道，如果是多key且轮询，保留轮询索引信息
@@ -130,13 +131,6 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 }
 
 func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
-	if strings.HasPrefix(model, "gpt-4-gizmo") {
-		model = "gpt-4-gizmo-*"
-	}
-	if strings.HasPrefix(model, "gpt-4o-gizmo") {
-		model = "gpt-4o-gizmo-*"
-	}
-
 	// 尝试从全局模型重定向里把传入 model 替换为等效模型 targetModels，然后参与渠道匹配
 	var (
 		targetModels            []string
@@ -203,6 +197,12 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		}
 	} else {
 		channels = group2model2channels[group][model]
+	}
+
+	// If no channels found, try to find channels with the normalized model name.
+	if len(channels) == 0 {
+		normalizedModel := ratio_setting.FormatMatchingModelName(model)
+		channels = group2model2channels[group][normalizedModel]
 	}
 
 	if len(channels) == 0 {

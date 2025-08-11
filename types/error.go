@@ -65,6 +65,7 @@ const (
 	ErrorCodeBadResponse            ErrorCode = "bad_response"
 	ErrorCodeBadResponseBody        ErrorCode = "bad_response_body"
 	ErrorCodeEmptyResponse          ErrorCode = "empty_response"
+	ErrorCodeAwsInvokeError         ErrorCode = "aws_invoke_error"
 
 	// sql error
 	ErrorCodeQueryDataError  ErrorCode = "query_data_error"
@@ -193,9 +194,13 @@ func NewError(err error, errorCode ErrorCode, ops ...NewAPIErrorOptions) *NewAPI
 }
 
 func NewOpenAIError(err error, errorCode ErrorCode, statusCode int, ops ...NewAPIErrorOptions) *NewAPIError {
+	if errorCode == ErrorCodeDoRequestFailed {
+		err = errors.New("upstream error: do request failed")
+	}
 	openaiError := OpenAIError{
 		Message: err.Error(),
 		Type:    string(errorCode),
+		Code:    errorCode,
 	}
 	return WithOpenAIError(openaiError, statusCode, ops...)
 }
@@ -203,6 +208,7 @@ func NewOpenAIError(err error, errorCode ErrorCode, statusCode int, ops ...NewAP
 func InitOpenAIError(errorCode ErrorCode, statusCode int, ops ...NewAPIErrorOptions) *NewAPIError {
 	openaiError := OpenAIError{
 		Type: string(errorCode),
+		Code: errorCode,
 	}
 	return WithOpenAIError(openaiError, statusCode, ops...)
 }
@@ -228,7 +234,11 @@ func NewErrorWithStatusCode(err error, errorCode ErrorCode, statusCode int, ops 
 func WithOpenAIError(openAIError OpenAIError, statusCode int, ops ...NewAPIErrorOptions) *NewAPIError {
 	code, ok := openAIError.Code.(string)
 	if !ok {
-		code = fmt.Sprintf("%v", openAIError.Code)
+		if openAIError.Code == nil {
+			code = fmt.Sprintf("%v", openAIError.Code)
+		} else {
+			code = "unknown_error"
+		}
 	}
 	if openAIError.Type == "" {
 		openAIError.Type = "upstream_error"
