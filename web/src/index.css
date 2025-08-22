@@ -52,7 +52,7 @@ code {
 }
 
 /* ==================== 导航和侧边栏样式 ==================== */
-/* 导航项样式 */
+.semi-radio,
 .semi-tagInput,
 .semi-input-textarea-wrapper,
 .semi-navigation-sub-title,
@@ -289,6 +289,27 @@ code {
 }
 
 /* ==================== 组件特定样式 ==================== */
+/* SelectableButtonGroup */
+.sbg-button .semi-button-content {
+  min-width: 0 !important;
+}
+
+.sbg-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.sbg-ellipsis {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* Tabs组件样式 */
 .semi-tabs-content {
   padding: 0 !important;
@@ -354,6 +375,21 @@ code {
 }
 
 /* ==================== 滚动条样式统一管理 ==================== */
+/* 通用隐藏滚动条工具类 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  /* Chrome, Safari, Opera */
+}
+
 /* 表格滚动条样式 */
 .semi-table-body::-webkit-scrollbar {
   width: 6px;
@@ -686,7 +722,6 @@ html.dark .with-pastel-balls::before {
   max-width: 460px;
   height: calc(100vh - 60px);
   background-color: var(--semi-color-bg-0);
-  border-right: 1px solid var(--semi-color-border);
   overflow: auto;
 }
 
@@ -710,7 +745,6 @@ html.dark .with-pastel-balls::before {
 
 .pricing-search-header {
   padding: 1rem;
-  border-bottom: 1px solid var(--semi-color-border);
   background-color: var(--semi-color-bg-0);
   flex-shrink: 0;
   position: sticky;
@@ -727,4 +761,9 @@ html.dark .with-pastel-balls::before {
   flex: 1;
   overflow: auto;
   min-height: 0;
+}
+
+/* ==================== semi-ui 组件自定义样式 ==================== */
+.semi-card-header {
+  padding: 10px !important;
 }

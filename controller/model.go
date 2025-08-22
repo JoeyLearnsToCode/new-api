@@ -94,7 +94,9 @@ func init() {
 		if !success || apiType == constant.APITypeAIProxyLibrary {
 			continue
 		}
-		meta := &relaycommon.RelayInfo{ChannelType: i}
+		meta := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: i,
+		}}
 		adaptor := relay.GetAdaptor(apiType)
 		adaptor.Init(meta)
 		channelId2Models[i] = adaptor.GetModelList()
