@@ -85,7 +85,7 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 	if err != nil {
 		return
 	}
-	common.CloseResponseBodyGracefully(resp)
+	CloseResponseBodyGracefully(resp)
 	var errResponse dto.GeneralErrorResponse
 
 	err = common.Unmarshal(responseBody, &errResponse)
@@ -93,6 +93,9 @@ func RelayErrorHandler(resp *http.Response, showBodyWhenFail bool) (newApiErr *t
 		if showBodyWhenFail {
 			newApiErr.Err = fmt.Errorf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody))
 		} else {
+			if common.DebugEnabled {
+				println(fmt.Sprintf("bad response status code %d, body: %s", resp.StatusCode, string(responseBody)))
+			}
 			newApiErr.Err = fmt.Errorf("bad response status code %d", resp.StatusCode)
 		}
 		return

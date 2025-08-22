@@ -19,12 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React, { useMemo } from 'react';
 import { Empty } from '@douyinfe/semi-ui';
-import CardTable from '../../common/ui/CardTable.js';
+import CardTable from '../../common/ui/CardTable';
 import {
   IllustrationNoResult,
   IllustrationNoResultDark
 } from '@douyinfe/semi-illustrations';
-import { getChannelsColumns } from './ChannelsColumnDefs.js';
+import { getChannelsColumns } from './ChannelsColumnDefs';
 
 const ChannelsTable = (channelsData) => {
   const {
@@ -57,6 +57,9 @@ const ChannelsTable = (channelsData) => {
     setEditingTag,
     copySelectedChannel,
     refresh,
+    // Multi-key management
+    setShowMultiKeyManageModal,
+    setCurrentMultiKeyChannel,
   } = channelsData;
 
   // Get all columns
@@ -79,6 +82,8 @@ const ChannelsTable = (channelsData) => {
       refresh,
       activePage,
       channels,
+      setShowMultiKeyManageModal,
+      setCurrentMultiKeyChannel,
     });
   }, [
     t,
@@ -98,6 +103,8 @@ const ChannelsTable = (channelsData) => {
     refresh,
     activePage,
     channels,
+    setShowMultiKeyManageModal,
+    setCurrentMultiKeyChannel,
   ]);
 
   // Filter columns based on visibility settings

@@ -43,7 +43,7 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	baseUrl := fmt.Sprintf("%s/api/paas/v4", info.BaseUrl)
+	baseUrl := fmt.Sprintf("%s/api/paas/v4", info.ChannelBaseUrl)
 	switch info.RelayMode {
 	case relayconstant.RelayModeEmbeddings:
 		return fmt.Sprintf("%s/embeddings", baseUrl), nil
@@ -54,8 +54,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
-	token := getZhipuToken(info.ApiKey)
-	req.Set("Authorization", token)
+	req.Set("Authorization", "Bearer "+info.ApiKey)
 	return nil
 }
 

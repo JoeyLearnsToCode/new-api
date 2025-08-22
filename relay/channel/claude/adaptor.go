@@ -53,9 +53,9 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if a.RequestMode == RequestModeMessage {
-		return fmt.Sprintf("%s/v1/messages", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/messages", info.ChannelBaseUrl), nil
 	} else {
-		return fmt.Sprintf("%s/v1/complete", info.BaseUrl), nil
+		return fmt.Sprintf("%s/v1/complete", info.ChannelBaseUrl), nil
 	}
 }
 
@@ -78,7 +78,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if a.RequestMode == RequestModeCompletion {
 		return RequestOpenAI2ClaudeComplete(*request), nil
 	} else {
-		return RequestOpenAI2ClaudeMessage(*request)
+		return RequestOpenAI2ClaudeMessage(c, *request)
 	}
 }
 
@@ -104,7 +104,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 	if info.IsStream {
 		err, usage = ClaudeStreamHandler(c, resp, info, a.RequestMode)
 	} else {
-		err, usage = ClaudeHandler(c, resp, a.RequestMode, info)
+		err, usage = ClaudeHandler(c, resp, info, a.RequestMode)
 	}
 	return
 }

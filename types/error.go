@@ -39,12 +39,13 @@ const (
 	ErrorCodeSensitiveWordsDetected ErrorCode = "sensitive_words_detected"
 
 	// new api error
-	ErrorCodeCountTokenFailed  ErrorCode = "count_token_failed"
-	ErrorCodeModelPriceError   ErrorCode = "model_price_error"
-	ErrorCodeInvalidApiType    ErrorCode = "invalid_api_type"
-	ErrorCodeJsonMarshalFailed ErrorCode = "json_marshal_failed"
-	ErrorCodeDoRequestFailed   ErrorCode = "do_request_failed"
-	ErrorCodeGetChannelFailed  ErrorCode = "get_channel_failed"
+	ErrorCodeCountTokenFailed   ErrorCode = "count_token_failed"
+	ErrorCodeModelPriceError    ErrorCode = "model_price_error"
+	ErrorCodeInvalidApiType     ErrorCode = "invalid_api_type"
+	ErrorCodeJsonMarshalFailed  ErrorCode = "json_marshal_failed"
+	ErrorCodeDoRequestFailed    ErrorCode = "do_request_failed"
+	ErrorCodeGetChannelFailed   ErrorCode = "get_channel_failed"
+	ErrorCodeGenRelayInfoFailed ErrorCode = "gen_relay_info_failed"
 
 	// channel error
 	ErrorCodeChannelNoAvailableKey       ErrorCode = "channel:no_available_key"
@@ -65,6 +66,8 @@ const (
 	ErrorCodeBadResponse            ErrorCode = "bad_response"
 	ErrorCodeBadResponseBody        ErrorCode = "bad_response_body"
 	ErrorCodeEmptyResponse          ErrorCode = "empty_response"
+	ErrorCodeAwsInvokeError         ErrorCode = "aws_invoke_error"
+	ErrorCodeModelNotFound          ErrorCode = "model_not_found"
 
 	// sql error
 	ErrorCodeQueryDataError  ErrorCode = "query_data_error"
@@ -117,7 +120,8 @@ func (e *NewAPIError) MaskSensitiveError() string {
 	if e.Err == nil {
 		return string(e.errorCode)
 	}
-	return common.MaskSensitiveInfo(e.Err.Error())
+	errStr := e.Err.Error()
+	return common.MaskSensitiveInfo(errStr)
 }
 
 func (e *NewAPIError) SetMessage(message string) {
@@ -189,9 +193,13 @@ func NewError(err error, errorCode ErrorCode, ops ...NewAPIErrorOptions) *NewAPI
 }
 
 func NewOpenAIError(err error, errorCode ErrorCode, statusCode int, ops ...NewAPIErrorOptions) *NewAPIError {
+	if errorCode == ErrorCodeDoRequestFailed {
+		err = errors.New("upstream error: do request failed")
+	}
 	openaiError := OpenAIError{
 		Message: err.Error(),
 		Type:    string(errorCode),
+		Code:    errorCode,
 	}
 	return WithOpenAIError(openaiError, statusCode, ops...)
 }
@@ -199,6 +207,7 @@ func NewOpenAIError(err error, errorCode ErrorCode, statusCode int, ops ...NewAP
 func InitOpenAIError(errorCode ErrorCode, statusCode int, ops ...NewAPIErrorOptions) *NewAPIError {
 	openaiError := OpenAIError{
 		Type: string(errorCode),
+		Code: errorCode,
 	}
 	return WithOpenAIError(openaiError, statusCode, ops...)
 }
@@ -224,7 +233,11 @@ func NewErrorWithStatusCode(err error, errorCode ErrorCode, statusCode int, ops 
 func WithOpenAIError(openAIError OpenAIError, statusCode int, ops ...NewAPIErrorOptions) *NewAPIError {
 	code, ok := openAIError.Code.(string)
 	if !ok {
-		code = fmt.Sprintf("%v", openAIError.Code)
+		if openAIError.Code == nil {
+			code = fmt.Sprintf("%v", openAIError.Code)
+		} else {
+			code = "unknown_error"
+		}
 	}
 	if openAIError.Type == "" {
 		openAIError.Type = "upstream_error"

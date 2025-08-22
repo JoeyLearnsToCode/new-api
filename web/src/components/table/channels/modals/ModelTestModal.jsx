@@ -27,8 +27,8 @@ import {
   Typography
 } from '@douyinfe/semi-ui';
 import { IconSearch } from '@douyinfe/semi-icons';
-import { copy, showError, showInfo, showSuccess } from '../../../../helpers/index.js';
-import { MODEL_TABLE_PAGE_SIZE } from '../../../../constants/index.js';
+import { copy, showError, showInfo, showSuccess } from '../../../../helpers';
+import { MODEL_TABLE_PAGE_SIZE } from '../../../../constants';
 
 const ModelTestModal = ({
   showModelTestModal,
@@ -175,7 +175,7 @@ const ModelTestModal = ({
             <Typography.Text strong className="!text-[var(--semi-color-text-0)] !text-base">
               {currentTestChannel.name} {t('渠道的模型测试')}
             </Typography.Text>
-            <Typography.Text type="tertiary" className="!text-xs flex items-center">
+            <Typography.Text type="tertiary" size="small">
               {t('共')} {currentTestChannel.models.split(',').length} {t('个模型')}
             </Typography.Text>
           </div>
