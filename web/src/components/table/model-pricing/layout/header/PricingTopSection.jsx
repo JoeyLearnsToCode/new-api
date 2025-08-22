@@ -35,6 +35,7 @@ const PricingTopSection = ({
   models,
   filteredModels,
   loading,
+  searchValue,
   t
 }) => {
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -46,11 +47,11 @@ const PricingTopSection = ({
         <Input
           prefix={<IconSearch />}
           placeholder={t('模糊搜索模型名称')}
+          value={searchValue}
           onCompositionStart={handleCompositionStart}
           onCompositionEnd={handleCompositionEnd}
           onChange={handleChange}
           showClear
-          style={{ backgroundColor: 'transparent' }}
         />
       </div>
 
@@ -78,7 +79,7 @@ const PricingTopSection = ({
         </Button>
       )}
     </div>
-  ), [selectedRowKeys, t, handleCompositionStart, handleCompositionEnd, handleChange, copyText, isMobile]);
+  ), [selectedRowKeys, t, handleCompositionStart, handleCompositionEnd, handleChange, copyText, isMobile, searchValue]);
 
   return (
     <>
