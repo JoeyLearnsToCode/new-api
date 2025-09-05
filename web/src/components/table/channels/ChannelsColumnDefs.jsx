@@ -27,14 +27,16 @@ import {
   SplitButtonGroup,
   Tag,
   Tooltip,
-  Typography
+  Typography,
 } from '@douyinfe/semi-ui';
 import {
   timestamp2string,
   renderGroup,
   renderQuota,
   getChannelIcon,
-  renderQuotaWithAmount
+  renderQuotaWithAmount,
+  showSuccess,
+  showError,
 } from '../../../helpers';
 import { CHANNEL_OPTIONS } from '../../../constants';
 import { IconTreeTriangleDown, IconMore, IconLink } from '@douyinfe/semi-icons';
@@ -51,27 +53,22 @@ const renderType = (type, channelInfo = undefined, t) => {
   let icon = getChannelIcon(type);
 
   if (channelInfo?.is_multi_key) {
-    icon = (
+    icon =
       channelInfo?.multi_key_mode === 'random' ? (
-        <div className="flex items-center gap-1">
-          <FaRandom className="text-blue-500" />
+        <div className='flex items-center gap-1'>
+          <FaRandom className='text-blue-500' />
           {icon}
         </div>
       ) : (
-        <div className="flex items-center gap-1">
-          <IconTreeTriangleDown className="text-blue-500" />
+        <div className='flex items-center gap-1'>
+          <IconTreeTriangleDown className='text-blue-500' />
           {icon}
         </div>
-      )
-    )
+      );
   }
 
   return (
-    <Tag
-      color={type2label[type]?.color}
-      shape='circle'
-      prefixIcon={icon}
-    >
+    <Tag color={type2label[type]?.color} shape='circle' prefixIcon={icon}>
       {type2label[type]?.label}
     </Tag>
   );
@@ -79,11 +76,7 @@ const renderType = (type, channelInfo = undefined, t) => {
 
 const renderTagType = (t) => {
   return (
-    <Tag
-      color='light-blue'
-      shape='circle'
-      type='light'
-    >
+    <Tag color='light-blue' shape='circle' type='light'>
       {t('标签聚合')}
     </Tag>
   );
@@ -95,7 +88,8 @@ const renderStatus = (status, channelInfo = undefined, t) => {
       let keySize = channelInfo.multi_key_size;
       let enabledKeySize = keySize;
       if (channelInfo.multi_key_status_list) {
-        enabledKeySize = keySize - Object.keys(channelInfo.multi_key_status_list).length;
+        enabledKeySize =
+          keySize - Object.keys(channelInfo.multi_key_status_list).length;
       }
       return renderMultiKeyStatus(status, keySize, enabledKeySize, t);
     }
@@ -155,7 +149,7 @@ const renderMultiKeyStatus = (status, keySize, enabledKeySize, t) => {
         </Tag>
       );
   }
-}
+};
 
 const renderResponseTime = (responseTime, t) => {
   let time = responseTime / 1000;
@@ -212,7 +206,7 @@ export const getChannelsColumns = ({
   activePage,
   channels,
   setShowMultiKeyManageModal,
-  setCurrentMultiKeyChannel
+  setCurrentMultiKeyChannel,
 }) => {
   return [
     {
@@ -224,24 +218,64 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.NAME,
       title: t('名称'),
       dataIndex: 'name',
-      render: (name) => {
-        const match = name.match(/L[-_](\d+)/i);
-        if (match) {
-          const topicId = match[1];
+      render: (text, record, index) => {
+        const match = text.match(/L[-_](\d+)/i);
+
+        // 创建基础内容
+        const baseContent = match ? (
+          <div>
+            <a
+              href={`https://linux.do/t/topic/${match[1]}`}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='mr-1'
+            >
+              <IconLink />
+            </a>
+            <span>{text}</span>
+          </div>
+        ) : (
+          <span>{text}</span>
+        );
+
+        // 如果有remark，包装在Tooltip中
+        if (record.remark && record.remark.trim() !== '') {
+          console.log(record.remark);
           return (
-            <Space spacing={5}>
-              <a
-                href={`https://linux.do/t/topic/${topicId}`}
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                <IconLink />
-              </a>
-              <Typography.Text>{name}</Typography.Text>
-            </Space>
+            <Tooltip
+              content={
+                <div className='flex flex-col gap-2 max-w-xs'>
+                  <div className='text-sm'>{record.remark}</div>
+                  <Button
+                    size='small'
+                    type='primary'
+                    theme='outline'
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard
+                        .writeText(record.remark)
+                        .then(() => {
+                          showSuccess(t('复制成功'));
+                        })
+                        .catch(() => {
+                          showError(t('复制失败'));
+                        });
+                    }}
+                  >
+                    {t('复制')}
+                  </Button>
+                </div>
+              }
+              trigger='hover'
+              position='topLeft'
+            >
+              {baseContent}
+            </Tooltip>
           );
         }
-        return <Typography.Text>{name}</Typography.Text>;
+
+        // 没有remark时直接返回基础内容
+        return baseContent;
       },
     },
     {
@@ -295,7 +329,9 @@ export const getChannelsColumns = ({
           return (
             <div>
               <Tooltip
-                content={t('原因：') + reason + t('，时间：') + timestamp2string(time)}
+                content={
+                  t('原因：') + reason + t('，时间：') + timestamp2string(time)
+                }
               >
                 {renderStatus(text, record.channel_info, t)}
               </Tooltip>
@@ -310,9 +346,7 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.RESPONSE_TIME,
       title: t('响应时间'),
       dataIndex: 'response_time',
-      render: (text, record, index) => (
-        <div>{renderResponseTime(text, t)}</div>
-      ),
+      render: (text, record, index) => <div>{renderResponseTime(text, t)}</div>,
     },
     {
       key: COLUMN_KEYS.BALANCE,
@@ -328,7 +362,9 @@ export const getChannelsColumns = ({
                     {renderQuota(record.used_quota)}
                   </Tag>
                 </Tooltip>
-                <Tooltip content={t('剩余额度$') + record.balance + t('，点击更新')}>
+                <Tooltip
+                  content={t('剩余额度$') + record.balance + t('，点击更新')}
+                >
                   <Tag
                     color='white'
                     type='ghost'
@@ -370,7 +406,7 @@ export const getChannelsColumns = ({
                 innerButtons
                 defaultValue={record.priority}
                 min={-999}
-                size="small"
+                size='small'
               />
             </div>
           );
@@ -383,7 +419,10 @@ export const getChannelsColumns = ({
               onBlur={(e) => {
                 Modal.warning({
                   title: t('修改子渠道优先级'),
-                  content: t('确定要修改所有子渠道优先级为 ') + e.target.value + t(' 吗？'),
+                  content:
+                    t('确定要修改所有子渠道优先级为 ') +
+                    e.target.value +
+                    t(' 吗？'),
                   onOk: () => {
                     if (e.target.value === '') {
                       return;
@@ -398,7 +437,7 @@ export const getChannelsColumns = ({
               innerButtons
               defaultValue={record.priority}
               min={-999}
-              size="small"
+              size='small'
             />
           );
         }
@@ -422,7 +461,7 @@ export const getChannelsColumns = ({
                 innerButtons
                 defaultValue={record.weight}
                 min={0}
-                size="small"
+                size='small'
               />
             </div>
           );
@@ -435,7 +474,10 @@ export const getChannelsColumns = ({
               onBlur={(e) => {
                 Modal.warning({
                   title: t('修改子渠道权重'),
-                  content: t('确定要修改所有子渠道权重为 ') + e.target.value + t(' 吗？'),
+                  content:
+                    t('确定要修改所有子渠道权重为 ') +
+                    e.target.value +
+                    t(' 吗？'),
                   onOk: () => {
                     if (e.target.value === '') {
                       return;
@@ -450,7 +492,7 @@ export const getChannelsColumns = ({
               innerButtons
               defaultValue={record.weight}
               min={-999}
-              size="small"
+              size='small'
             />
           );
         }
@@ -503,18 +545,18 @@ export const getChannelsColumns = ({
           return (
             <Space wrap>
               <SplitButtonGroup
-                className="overflow-hidden"
+                className='overflow-hidden'
                 aria-label={t('测试单个渠道操作项目组')}
               >
                 <Button
-                  size="small"
+                  size='small'
                   type='tertiary'
                   onClick={() => testChannel(record, '')}
                 >
                   {t('测试')}
                 </Button>
                 <Button
-                  size="small"
+                  size='small'
                   type='tertiary'
                   icon={<IconTreeTriangleDown />}
                   onClick={() => {
@@ -524,32 +566,28 @@ export const getChannelsColumns = ({
                 />
               </SplitButtonGroup>
 
-              {
-                record.status === 1 ? (
-                  <Button
-                    type='danger'
-                    size="small"
-                    onClick={() => manageChannel(record.id, 'disable', record)}
-                  >
-                    {t('禁用')}
-                  </Button>
-                ) : (
-                  <Button
-                    size="small"
-                    onClick={() => manageChannel(record.id, 'enable', record)}
-                  >
-                    {t('启用')}
-                  </Button>
-                )
-              }
+              {record.status === 1 ? (
+                <Button
+                  type='danger'
+                  size='small'
+                  onClick={() => manageChannel(record.id, 'disable', record)}
+                >
+                  {t('禁用')}
+                </Button>
+              ) : (
+                <Button
+                  size='small'
+                  onClick={() => manageChannel(record.id, 'enable', record)}
+                >
+                  {t('启用')}
+                </Button>
+              )}
 
               {record.channel_info?.is_multi_key ? (
-                <SplitButtonGroup
-                  aria-label={t('多密钥渠道操作项目组')}
-                >
+                <SplitButtonGroup aria-label={t('多密钥渠道操作项目组')}>
                   <Button
                     type='tertiary'
-                    size="small"
+                    size='small'
                     onClick={() => {
                       setEditingChannel(record);
                       setShowEdit(true);
@@ -568,12 +606,12 @@ export const getChannelsColumns = ({
                           setCurrentMultiKeyChannel(record);
                           setShowMultiKeyManageModal(true);
                         },
-                      }
+                      },
                     ]}
                   >
                     <Button
                       type='tertiary'
-                      size="small"
+                      size='small'
                       icon={<IconTreeTriangleDown />}
                     />
                   </Dropdown>
@@ -581,7 +619,7 @@ export const getChannelsColumns = ({
               ) : (
                 <Button
                   type='tertiary'
-                  size="small"
+                  size='small'
                   onClick={() => {
                     setEditingChannel(record);
                     setShowEdit(true);
@@ -596,11 +634,7 @@ export const getChannelsColumns = ({
                 position='bottomRight'
                 menu={moreMenuItems}
               >
-                <Button
-                  icon={<IconMore />}
-                  type='tertiary'
-                  size="small"
-                />
+                <Button icon={<IconMore />} type='tertiary' size='small' />
               </Dropdown>
             </Space>
           );
@@ -610,21 +644,21 @@ export const getChannelsColumns = ({
             <Space wrap>
               <Button
                 type='tertiary'
-                size="small"
+                size='small'
                 onClick={() => manageTag(record.key, 'enable')}
               >
                 {t('启用全部')}
               </Button>
               <Button
                 type='tertiary'
-                size="small"
+                size='small'
                 onClick={() => manageTag(record.key, 'disable')}
               >
                 {t('禁用全部')}
               </Button>
               <Button
                 type='tertiary'
-                size="small"
+                size='small'
                 onClick={() => {
                   setShowEditTag(true);
                   setEditingTag(record.key);
@@ -638,4 +672,4 @@ export const getChannelsColumns = ({
       },
     },
   ];
-}; 
+};
