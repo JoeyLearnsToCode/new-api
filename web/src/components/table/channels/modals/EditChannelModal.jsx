@@ -1308,7 +1308,7 @@ const EditChannelModal = (props) => {
                               field='key'
                               label={
                                 isEdit
-                                  ? t('密钥（编辑模式下，保存的密钥不会显示）')
+                                  ? t('密钥')
                                   : t('密钥')
                               }
                               placeholder={t(
@@ -1391,7 +1391,7 @@ const EditChannelModal = (props) => {
                           field='key'
                           label={
                             isEdit
-                              ? t('密钥（编辑模式下，保存的密钥不会显示）')
+                              ? t('密钥')
                               : t('密钥')
                           }
                           placeholder={t(type2secretPrompt(inputs.type))}
@@ -1992,6 +1992,14 @@ const EditChannelModal = (props) => {
                     placeholder={t('渠道标签')}
                     showClear
                     onChange={(value) => handleInputChange('tag', value)}
+                  />
+                  <Form.TextArea
+                    field='remark'
+                    label={t('备注')}
+                    placeholder={t('请输入备注（仅管理员可见）')}
+                    maxLength={255}
+                    showClear
+                    onChange={(value) => handleInputChange('remark', value)}
                   />
 
                   <Row gutter={12}>

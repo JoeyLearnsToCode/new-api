@@ -35,6 +35,8 @@ import {
   renderQuota,
   getChannelIcon,
   renderQuotaWithAmount,
+  showSuccess,
+  showError,
 } from '../../../helpers';
 import { CHANNEL_OPTIONS } from '../../../constants';
 import { IconTreeTriangleDown, IconMore, IconLink } from '@douyinfe/semi-icons';
@@ -216,24 +218,64 @@ export const getChannelsColumns = ({
       key: COLUMN_KEYS.NAME,
       title: t('名称'),
       dataIndex: 'name',
-      render: (name) => {
-        const match = name.match(/L[-_](\d+)/i);
-        if (match) {
-          const topicId = match[1];
+      render: (text, record, index) => {
+        const match = text.match(/L[-_](\d+)/i);
+
+        // 创建基础内容
+        const baseContent = match ? (
+          <div>
+            <a
+              href={`https://linux.do/t/topic/${match[1]}`}
+              target='_blank'
+              rel='noopener noreferrer'
+              className='mr-1'
+            >
+              <IconLink />
+            </a>
+            <span>{text}</span>
+          </div>
+        ) : (
+          <span>{text}</span>
+        );
+
+        // 如果有remark，包装在Tooltip中
+        if (record.remark && record.remark.trim() !== '') {
+          console.log(record.remark);
           return (
-            <Space spacing={5}>
-              <a
-                href={`https://linux.do/t/topic/${topicId}`}
-                target='_blank'
-                rel='noopener noreferrer'
-              >
-                <IconLink />
-              </a>
-              <Typography.Text>{name}</Typography.Text>
-            </Space>
+            <Tooltip
+              content={
+                <div className='flex flex-col gap-2 max-w-xs'>
+                  <div className='text-sm'>{record.remark}</div>
+                  <Button
+                    size='small'
+                    type='primary'
+                    theme='outline'
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard
+                        .writeText(record.remark)
+                        .then(() => {
+                          showSuccess(t('复制成功'));
+                        })
+                        .catch(() => {
+                          showError(t('复制失败'));
+                        });
+                    }}
+                  >
+                    {t('复制')}
+                  </Button>
+                </div>
+              }
+              trigger='hover'
+              position='topLeft'
+            >
+              {baseContent}
+            </Tooltip>
           );
         }
-        return <Typography.Text>{name}</Typography.Text>;
+
+        // 没有remark时直接返回基础内容
+        return baseContent;
       },
     },
     {
