@@ -95,7 +95,7 @@ func Distribute() func(c *gin.Context) {
 						userGroup = playgroundRequest.Group
 					}
 				}
-				channel, selectGroup, err = model.CacheGetRandomSatisfiedChannel(c, userGroup, modelRequest.Model, 0)
+				channel, selectGroup, err = model.CacheGetRandomSatisfiedChannel(c, userGroup, modelRequest.Model, 0, nil)
 				if err != nil {
 					showGroup := userGroup
 					if userGroup == "auto" {

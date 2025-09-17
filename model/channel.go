@@ -246,6 +246,14 @@ func (channel *Channel) GetAutoBan() bool {
 	return *channel.AutoBan == 1
 }
 
+func (channel *Channel) GetStreamSupport() string {
+	setting := channel.GetSetting()
+	if setting.StreamSupport != "" {
+		return setting.StreamSupport
+	}
+	return constant.StreamSupportBoth // 默认支持流式和非流式
+}
+
 func (channel *Channel) Save() error {
 	return DB.Save(channel).Error
 }

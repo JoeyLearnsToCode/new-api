@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"one-api/common"
+	"one-api/constant"
+	"sort"
 	"strings"
 	"sync"
 
@@ -87,29 +89,123 @@ func getPriority(group string, model string, retry int) (int, error) {
 	return priorityToUse, nil
 }
 
-func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
-	channelQuery := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery)
-	if retry != 0 {
-		priority, err := getPriority(group, model, retry)
-		if err != nil {
-			return nil, err
+func applyRetryFiltering(abilities []Ability, group string, model string, retry int) ([]Ability, error) {
+	if len(abilities) == 0 {
+		return abilities, nil
+	}
+
+	// 从abilities中提取所有不同的优先级并排序
+	prioritySet := make(map[int64]bool)
+	for _, ability := range abilities {
+		if ability.Priority != nil {
+			prioritySet[*ability.Priority] = true
 		} else {
-			channelQuery = DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority)
+			prioritySet[0] = true
 		}
 	}
 
-	return channelQuery, nil
+	if len(prioritySet) == 0 {
+		// 如果没有优先级信息，返回所有abilities
+		return abilities, nil
+	}
+
+	// 将优先级转换为切片并按降序排序
+	var priorities []int64
+	for priority := range prioritySet {
+		priorities = append(priorities, priority)
+	}
+	sort.Slice(priorities, func(i, j int) bool {
+		return priorities[i] > priorities[j]
+	})
+
+	// 确定要使用的优先级
+	var targetPriority int64
+	if retry >= len(priorities) {
+		// 如果重试次数大于优先级数，则使用最小的优先级
+		targetPriority = priorities[len(priorities)-1]
+	} else {
+		targetPriority = priorities[retry]
+	}
+
+	// 筛选出匹配目标优先级的abilities
+	var filtered []Ability
+	for _, ability := range abilities {
+		curPriority := int64(0)
+		if ability.Priority != nil {
+			curPriority = *ability.Priority
+		}
+		if curPriority == targetPriority {
+			filtered = append(filtered, ability)
+		}
+	}
+	return filtered, nil
 }
 
-func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
+func getChannelQuery(group string, model string) *gorm.DB {
+	return DB.Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
+}
+
+func filterAbilities(filter *ExtraChannelFilter, abilities []Ability) (filteredAbilities []Ability, err error) {
+	filteredAbilities = abilities
+	if filter == nil {
+		return
+	}
+
+	if filter.IsStream != nil {
+		filteredAbilities = nil
+		isStreamRequest := *filter.IsStream
+
+		var jsonQuery string
+		if common.UsingPostgreSQL {
+			jsonQuery = "(setting::jsonb->>'stream_support' IN (?, ?) OR setting::jsonb->>'stream_support' IS NULL)"
+		} else {
+			// SQLite or MySQL
+			jsonQuery = "(JSON_EXTRACT(setting, '$.stream_support') IN (?, ?) OR JSON_EXTRACT(setting, '$.stream_support') IS NULL)"
+		}
+		var args []interface{}
+		if isStreamRequest {
+			args = []interface{}{constant.StreamSupportBoth, constant.StreamSupportOnly}
+		} else {
+			args = []interface{}{constant.StreamSupportBoth, constant.StreamSupportNonStream}
+		}
+
+		// Extract channel IDs from abilities
+		channelIds := make([]int, len(abilities))
+		for i, ability := range abilities {
+			channelIds[i] = ability.ChannelId
+		}
+
+		if len(channelIds) > 0 {
+			// Query channels that match both the ID list and the JSON filter
+			var validChannelIds []int
+			err = DB.Model(&Channel{}).
+				Where("id IN (?)", channelIds).
+				Where(jsonQuery, args...).
+				Pluck("id", &validChannelIds).Error
+			if err != nil {
+				return nil, err
+			}
+
+			// Filter abilities based on valid channel IDs
+			validChannelIdSet := make(map[int]bool)
+			for _, id := range validChannelIds {
+				validChannelIdSet[id] = true
+			}
+			for _, ability := range abilities {
+				if validChannelIdSet[ability.ChannelId] {
+					filteredAbilities = append(filteredAbilities, ability)
+				}
+			}
+		}
+	}
+	return
+}
+
+func GetRandomSatisfiedChannel(group string, model string, retry int, filter *ExtraChannelFilter) (*Channel, error) {
 	var abilities []Ability
 
 	var err error = nil
-	channelQuery, err := getChannelQuery(group, model, retry)
-	if err != nil {
-		return nil, err
-	}
+	channelQuery := getChannelQuery(group, model)
 	if common.UsingSQLite || common.UsingPostgreSQL {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	} else {
@@ -118,6 +214,16 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	if err != nil {
 		return nil, err
 	}
+
+	if abilities, err = filterAbilities(filter, abilities); err != nil {
+		return nil, fmt.Errorf("filterAbilities failed: %w", err)
+	}
+
+	abilities, err = applyRetryFiltering(abilities, group, model, retry)
+	if err != nil {
+		return nil, fmt.Errorf("applyRetryFiltering failed: %w", err)
+	}
+
 	channel := Channel{}
 	if len(abilities) > 0 {
 		// Randomly choose one

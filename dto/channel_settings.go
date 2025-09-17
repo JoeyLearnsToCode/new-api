@@ -7,6 +7,7 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
+	StreamSupport          string `json:"stream_support,omitempty"` // 流式支持配置：BOTH-支持流式和非流式（默认），STREAM_ONLY-仅支持流式，NON_STREAM_ONLY-仅支持非流式
 }
 
 type VertexKeyType string

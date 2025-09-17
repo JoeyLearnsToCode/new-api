@@ -20,6 +20,40 @@ var group2model2channels map[string]map[string][]int // enabled channel
 var channelsIDM map[int]*Channel                     // all channels include disabled
 var channelSyncLock sync.RWMutex
 
+// ExtraChannelFilter 额外的渠道筛选条件
+type ExtraChannelFilter struct {
+	IsStream *bool `json:"is_stream,omitempty"` // 是否为流式请求
+}
+
+// MatchesChannel 检查渠道是否匹配筛选条件
+func (filter *ExtraChannelFilter) MatchesChannel(channel *Channel) bool {
+	if filter == nil {
+		return true
+	}
+
+	// 检查流式支持筛选
+	if filter.IsStream != nil {
+		streamSupport := channel.GetStreamSupport()
+		isStreamRequest := *filter.IsStream
+		
+		switch streamSupport {
+		case constant.StreamSupportBoth:
+			// 支持流式和非流式，都匹配
+			return true
+		case constant.StreamSupportOnly:
+			// 仅支持流式，只有流式请求匹配
+			return isStreamRequest
+		case constant.StreamSupportNonStream:
+			// 仅支持非流式，只有非流式请求匹配
+			return !isStreamRequest
+		default:
+			return true
+		}
+	}
+
+	return true
+}
+
 func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		return
@@ -95,7 +129,7 @@ func SyncChannelCache(frequency int) {
 	}
 }
 
-func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, retry int) (*Channel, string, error) {
+func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, retry int, filter *ExtraChannelFilter) (*Channel, string, error) {
 	var channel *Channel
 	var err error
 	selectGroup := group
@@ -107,7 +141,7 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 			if common.DebugEnabled {
 				println("autoGroup:", autoGroup)
 			}
-			channel, _ = getRandomSatisfiedChannel(autoGroup, model, retry)
+			channel, _ = getRandomSatisfiedChannel(autoGroup, model, retry, filter)
 			if channel == nil {
 				continue
 			} else {
@@ -120,7 +154,7 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 			}
 		}
 	} else {
-		channel, err = getRandomSatisfiedChannel(group, model, retry)
+		channel, err = getRandomSatisfiedChannel(group, model, retry, filter)
 		if err != nil {
 			return nil, group, err
 		}
@@ -128,10 +162,10 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 	return channel, selectGroup, nil
 }
 
-func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
+func getRandomSatisfiedChannel(group string, model string, retry int, filter *ExtraChannelFilter) (*Channel, error) {
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
-		return GetRandomSatisfiedChannel(group, model, retry)
+		return GetRandomSatisfiedChannel(group, model, retry, filter)
 	}
 
 	channelSyncLock.RLock()
@@ -150,15 +184,29 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		return nil, nil
 	}
 
-	if len(channels) == 1 {
-		if channel, ok := channelsIDM[channels[0]]; ok {
+	// Apply extra filter to channels
+	var filteredChannels []int
+	for _, channelId := range channels {
+		if channel, ok := channelsIDM[channelId]; ok {
+			if filter == nil || filter.MatchesChannel(channel) {
+				filteredChannels = append(filteredChannels, channelId)
+			}
+		}
+	}
+
+	if len(filteredChannels) == 0 {
+		return nil, nil
+	}
+
+	if len(filteredChannels) == 1 {
+		if channel, ok := channelsIDM[filteredChannels[0]]; ok {
 			return channel, nil
 		}
-		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
+		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", filteredChannels[0])
 	}
 
 	uniquePriorities := make(map[int]bool)
-	for _, channelId := range channels {
+	for _, channelId := range filteredChannels {
 		if channel, ok := channelsIDM[channelId]; ok {
 			uniquePriorities[int(channel.GetPriority())] = true
 		} else {
@@ -178,7 +226,7 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 
 	// get the priority for the given retry number
 	var targetChannels []*Channel
-	for _, channelId := range channels {
+	for _, channelId := range filteredChannels {
 		if channel, ok := channelsIDM[channelId]; ok {
 			if channel.GetPriority() == targetPriority {
 				targetChannels = append(targetChannels, channel)
