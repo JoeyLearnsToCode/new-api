@@ -89,7 +89,7 @@ func getPriority(group string, models []string, retry int) (int, error) {
 	return priorityToUse, nil
 }
 
-func applyRetryFiltering(abilities []Ability, group string, model string, retry int) ([]Ability, error) {
+func applyRetryFiltering(abilities []Ability, retry int) ([]Ability, error) {
 	if len(abilities) == 0 {
 		return abilities, nil
 	}
@@ -219,7 +219,7 @@ func GetRandomSatisfiedChannel(group string, models []string, retry int, filter 
 		return nil, nil, fmt.Errorf("filterAbilities failed: %w", err)
 	}
 
-	abilities, err = applyRetryFiltering(abilities, group, model, retry)
+	abilities, err = applyRetryFiltering(abilities, retry)
 	if err != nil {
 		return nil, nil, fmt.Errorf("applyRetryFiltering failed: %w", err)
 	}
