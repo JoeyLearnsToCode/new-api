@@ -157,10 +157,10 @@ func filterAbilities(filter *ExtraChannelFilter, abilities []Ability) (filteredA
 
 		var jsonQuery string
 		if common.UsingPostgreSQL {
-			jsonQuery = "(setting::jsonb->>'stream_support' IN (?, ?) OR setting::jsonb->>'stream_support' IS NULL)"
+			jsonQuery = "(setting IS NULL OR setting = '' OR setting::jsonb->>'stream_support' IN (?, ?) OR setting::jsonb->>'stream_support' IS NULL)"
 		} else {
 			// SQLite or MySQL
-			jsonQuery = "(JSON_EXTRACT(setting, '$.stream_support') IN (?, ?) OR JSON_EXTRACT(setting, '$.stream_support') IS NULL)"
+			jsonQuery = "(setting IS NULL OR setting = '' OR JSON_EXTRACT(setting, '$.stream_support') IN (?, ?) OR JSON_EXTRACT(setting, '$.stream_support') IS NULL)"
 		}
 		var args []interface{}
 		if isStreamRequest {

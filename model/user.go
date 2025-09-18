@@ -739,7 +739,7 @@ func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error)
 		// Don't return error - fall through to DB
 	}
 	fromDB = true
-	err = DB.Model(&User{}).Where("id = ?", id).Select("setting").Find(&setting).Error
+	err = DB.Model(&User{}).Where("id = ?", id).Select("ifnull(setting,'')").Find(&setting).Error
 	if err != nil {
 		return settingMap, err
 	}
