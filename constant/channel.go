@@ -54,6 +54,13 @@ const (
 
 )
 
+// Streaming support modes
+const (
+	StreamSupportBoth      = "BOTH"        // 支持流式和非流式（默认）
+	StreamSupportOnly      = "STREAM_ONLY" // 仅支持流式
+	StreamSupportNonStream = "NON_STREAM_ONLY" // 仅支持非流式
+)
+
 var ChannelBaseURLs = []string{
 	"",                                    // 0
 	"https://api.openai.com",              // 1

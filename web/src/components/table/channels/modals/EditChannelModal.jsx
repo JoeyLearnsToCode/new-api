@@ -214,6 +214,7 @@ const EditChannelModal = (props) => {
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
+    stream_support: 'BOTH',
   });
   const showApiConfigCard = inputs.type !== 45; // 控制是否显示 API 配置卡片（仅当渠道类型不是 豆包 时显示）
   const getInitValues = () => ({ ...originInputs });
@@ -388,6 +389,7 @@ const EditChannelModal = (props) => {
           data.system_prompt = parsedSettings.system_prompt || '';
           data.system_prompt_override =
             parsedSettings.system_prompt_override || false;
+          data.stream_support = parsedSettings.stream_support || 'BOTH';
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
@@ -396,6 +398,7 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
           data.system_prompt_override = false;
+          data.stream_support = 'BOTH';
         }
       } else {
         data.force_format = false;
@@ -442,6 +445,7 @@ const EditChannelModal = (props) => {
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
         system_prompt_override: data.system_prompt_override || false,
+        stream_support: data.stream_support || 'BOTH',
       });
       // console.log(data);
     } else {
@@ -689,6 +693,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: false,
       system_prompt: '',
       system_prompt_override: false,
+      stream_support: 'BOTH',
     });
     // 重置密钥模式状态
     setKeyMode('append');
@@ -848,6 +853,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
+      stream_support: localInputs.stream_support || 'BOTH',
     };
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
@@ -858,6 +864,7 @@ const EditChannelModal = (props) => {
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
+    delete localInputs.stream_support;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
 
@@ -2068,6 +2075,7 @@ const EditChannelModal = (props) => {
                     </Col>
                   </Row>
 
+
                   <Form.Switch
                     field='auto_ban'
                     label={t('是否自动禁用')}
@@ -2225,6 +2233,20 @@ const EditChannelModal = (props) => {
                       </Text>
                     </div>
                   </div>
+
+                  <Form.Select
+                    field='stream_support'
+                    label={t('流式支持')}
+                    placeholder={t('请选择流式支持类型')}
+                    optionList={[
+                      { label: t('支持流式和非流式（默认）'), value: 'BOTH' },
+                      { label: t('仅支持流式'), value: 'STREAM_ONLY' },
+                      { label: t('仅支持非流式'), value: 'NON_STREAM_ONLY' },
+                    ]}
+                    style={{ width: '100%' }}
+                    onChange={(value) => handleChannelSettingsChange('stream_support', value)}
+                    extraText={t('控制渠道对流式和非流式请求的支持')}
+                  />
 
                   {inputs.type === 1 && (
                     <Form.Switch

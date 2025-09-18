@@ -22,6 +22,40 @@ var group2model2channels map[string]map[string][]int // enabled channel
 var channelsIDM map[int]*Channel                     // all channels include disabled
 var channelSyncLock sync.RWMutex
 
+// ExtraChannelFilter 额外的渠道筛选条件
+type ExtraChannelFilter struct {
+	IsStream *bool `json:"is_stream,omitempty"` // 是否为流式请求
+}
+
+// MatchesChannel 检查渠道是否匹配筛选条件
+func (filter *ExtraChannelFilter) MatchesChannel(channel *Channel) bool {
+	if filter == nil {
+		return true
+	}
+
+	// 检查流式支持筛选
+	if filter.IsStream != nil {
+		streamSupport := channel.GetStreamSupport()
+		isStreamRequest := *filter.IsStream
+
+		switch streamSupport {
+		case constant.StreamSupportBoth:
+			// 支持流式和非流式，都匹配
+			return true
+		case constant.StreamSupportOnly:
+			// 仅支持流式，只有流式请求匹配
+			return isStreamRequest
+		case constant.StreamSupportNonStream:
+			// 仅支持非流式，只有非流式请求匹配
+			return !isStreamRequest
+		default:
+			return true
+		}
+	}
+
+	return true
+}
+
 func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		return
@@ -97,7 +131,7 @@ func SyncChannelCache(frequency int) {
 	}
 }
 
-func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, retry int) (*Channel, string, error) {
+func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, retry int, filter *ExtraChannelFilter) (*Channel, string, error) {
 	var channel *Channel
 	var err error
 	selectGroup := group
@@ -109,7 +143,7 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 			if common.DebugEnabled {
 				println("autoGroup:", autoGroup)
 			}
-			channel, _ = getRandomSatisfiedChannel(autoGroup, model, retry)
+			channel, _ = getRandomSatisfiedChannel(autoGroup, model, retry, filter)
 			if channel == nil {
 				continue
 			} else {
@@ -122,7 +156,7 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 			}
 		}
 	} else {
-		channel, err = getRandomSatisfiedChannel(group, model, retry)
+		channel, err = getRandomSatisfiedChannel(group, model, retry, filter)
 		if err != nil {
 			return nil, group, err
 		}
@@ -156,7 +190,7 @@ func resolveGlobalModelMappings(model string, globalModelMapping *model_setting.
 	processedModels := make(map[string]bool)
 	currentModels := []string{model}
 	usingGlobalModelMapping := false
-	
+
 	const maxIterations = 5
 	for i := 0; i < maxIterations; i++ {
 		var nextModels []string
@@ -211,15 +245,14 @@ func resolveGlobalModelMappings(model string, globalModelMapping *model_setting.
 	return finalModels, true
 }
 
-func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
+func getRandomSatisfiedChannel(group string, model string, retry int, filter *ExtraChannelFilter) (*Channel, error) {
 	// 应用全局模型映射
 	globalModelMapping := &model_setting.GetGlobalSettings().ModelMapping
 	targetModels, usingGlobalModelMapping := resolveGlobalModelMappings(model, globalModelMapping)
-
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
 		if usingGlobalModelMapping {
-			channel, ability, err := GetRandomSatisfiedChannel(group, targetModels, retry)
+			channel, ability, err := GetRandomSatisfiedChannel(group, targetModels, retry, filter)
 			if err != nil {
 				return channel, err
 			}
@@ -236,7 +269,7 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 			}
 			return channel, nil
 		}
-		channel, _, err := GetRandomSatisfiedChannel(group, targetModels, retry)
+		channel, _, err := GetRandomSatisfiedChannel(group, targetModels, retry, filter)
 		return channel, err
 	}
 
@@ -270,7 +303,7 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		return nil, nil
 	}
 
-	selectedChannel, err := selectChannelByPriorityAndWeight(channels, retry)
+	selectedChannel, err := selectChannelByPriorityAndWeight(channels, retry, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -294,17 +327,31 @@ func getRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 }
 
 // selectChannelByPriorityAndWeight 根据优先级和权重随机选择channel
-func selectChannelByPriorityAndWeight(channels []int, retry int) (*Channel, error) {
-	if len(channels) == 1 {
-		if channel, ok := channelsIDM[channels[0]]; ok {
+func selectChannelByPriorityAndWeight(channels []int, retry int, filter *ExtraChannelFilter) (*Channel, error) {
+	// Apply extra filter to channels
+	var filteredChannels []int
+	for _, channelId := range channels {
+		if channel, ok := channelsIDM[channelId]; ok {
+			if filter == nil || filter.MatchesChannel(channel) {
+				filteredChannels = append(filteredChannels, channelId)
+			}
+		}
+	}
+
+	if len(filteredChannels) == 0 {
+		return nil, nil
+	}
+
+	if len(filteredChannels) == 1 {
+		if channel, ok := channelsIDM[filteredChannels[0]]; ok {
 			return channel, nil
 		}
-		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
+		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", filteredChannels[0])
 	}
 
 	// 获取所有唯一的优先级
 	uniquePriorities := make(map[int]bool)
-	for _, channelId := range channels {
+	for _, channelId := range filteredChannels {
 		if channel, ok := channelsIDM[channelId]; ok {
 			uniquePriorities[int(channel.GetPriority())] = true
 		} else {
@@ -327,7 +374,7 @@ func selectChannelByPriorityAndWeight(channels []int, retry int) (*Channel, erro
 
 	// get the priority for the given retry number
 	var targetChannels []*Channel
-	for _, channelId := range channels {
+	for _, channelId := range filteredChannels {
 		if channel, ok := channelsIDM[channelId]; ok {
 			if channel.GetPriority() == targetPriority {
 				targetChannels = append(targetChannels, channel)

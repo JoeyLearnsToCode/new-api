@@ -151,8 +151,13 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 	}()
 
+	// Create filter based on streaming information from RelayInfo
+	filter := &model.ExtraChannelFilter{
+		IsStream: &relayInfo.IsStream,
+	}
+
 	for i := 0; i <= common.RetryTimes; i++ {
-		channel, err := getChannel(c, group, originalModel, i)
+		channel, err := getChannel(c, group, originalModel, i, filter)
 		if err != nil {
 			logger.LogError(c, err.Error())
 			newAPIError = err
@@ -205,21 +210,33 @@ func addUsedChannel(c *gin.Context, channelId int) {
 	c.Set("use_channel", useChannel)
 }
 
-func getChannel(c *gin.Context, group, originalModel string, retryCount int) (*model.Channel, *types.NewAPIError) {
+func getChannel(c *gin.Context, group, originalModel string, retryCount int, filter *model.ExtraChannelFilter) (*model.Channel, *types.NewAPIError) {
 	if retryCount == 0 {
-		autoBan := c.GetBool("auto_ban")
-		autoBanInt := 1
-		if !autoBan {
-			autoBanInt = 0
+		if _, exists := c.Get(constant.ContextKeyChannelId.String()); exists {
+			var channelSetting dto.ChannelSettings
+			if channelSettingI, exists2 := c.Get(constant.ContextKeyChannelSetting.String()); exists2 {
+				channelSetting, _ = channelSettingI.(dto.ChannelSettings)
+			}
+			channel := &model.Channel{
+				Id:   c.GetInt(constant.ContextKeyChannelId.String()),
+				Type: c.GetInt(constant.ContextKeyChannelType.String()),
+				Name: c.GetString(constant.ContextKeyChannelName.String()),
+			}
+			channel.SetSetting(channelSetting)
+
+			if filter == nil || filter.MatchesChannel(channel) {
+				autoBan := c.GetBool("auto_ban")
+				autoBanInt := 1
+				if !autoBan {
+					autoBanInt = 0
+				}
+				channel.AutoBan = &autoBanInt
+				return channel, nil
+			}
 		}
-		return &model.Channel{
-			Id:      c.GetInt("channel_id"),
-			Type:    c.GetInt("channel_type"),
-			Name:    c.GetString("channel_name"),
-			AutoBan: &autoBanInt,
-		}, nil
 	}
-	channel, selectGroup, err := model.CacheGetRandomSatisfiedChannel(c, group, originalModel, retryCount)
+
+	channel, selectGroup, err := model.CacheGetRandomSatisfiedChannel(c, group, originalModel, retryCount, filter)
 	if err != nil {
 		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, originalModel, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
@@ -395,7 +412,7 @@ func RelayTask(c *gin.Context) {
 		retryTimes = 0
 	}
 	for i := 0; shouldRetryTaskRelay(c, channelId, taskErr, retryTimes) && i < retryTimes; i++ {
-		channel, newAPIError := getChannel(c, group, originalModel, i)
+		channel, newAPIError := getChannel(c, group, originalModel, i, nil)
 		if newAPIError != nil {
 			logger.LogError(c, fmt.Sprintf("CacheGetRandomSatisfiedChannel failed: %s", newAPIError.Error()))
 			taskErr = service.TaskErrorWrapperLocal(newAPIError.Err, "get_channel_failed", http.StatusInternalServerError)

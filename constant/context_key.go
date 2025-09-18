@@ -2,6 +2,10 @@ package constant
 
 type ContextKey string
 
+func (c ContextKey) String() string {
+	return string(c)
+}
+
 const (
 	ContextKeyTokenCountMeta ContextKey = "token_count_meta"
 	ContextKeyPromptTokens   ContextKey = "prompt_tokens"

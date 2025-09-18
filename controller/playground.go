@@ -49,7 +49,7 @@ func Playground(c *gin.Context) {
 		Group:  group,
 	}
 	_ = middleware.SetupContextForToken(c, tempToken)
-	_, newAPIError = getChannel(c, group, modelName, 0)
+	_, newAPIError = getChannel(c, group, modelName, 0, nil)
 	if newAPIError != nil {
 		return
 	}
