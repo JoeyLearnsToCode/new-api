@@ -66,6 +66,8 @@ import {
   IconCode,
   IconGlobe,
   IconBolt,
+  IconChevronUp,
+  IconChevronDown,
 } from '@douyinfe/semi-icons';
 
 const { Text, Title } = Typography;
@@ -141,6 +143,7 @@ const EditChannelModal = (props) => {
     pass_through_body_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
+    expiration_time: null,
     settings: '',
     // 仅 Vertex: 密钥格式（存入 settings.vertex_key_type）
     vertex_key_type: 'json',
@@ -184,6 +187,18 @@ const EditChannelModal = (props) => {
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyLoading, setVerifyLoading] = useState(false);
 
+  // 表单块导航相关状态
+  const formSectionRefs = useRef({
+    basicInfo: null,
+    apiConfig: null,
+    modelConfig: null,
+    advancedSettings: null,
+    channelExtraSettings: null,
+  });
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const formSections = ['basicInfo', 'apiConfig', 'modelConfig', 'advancedSettings', 'channelExtraSettings'];
+  const formContainerRef = useRef(null);
+
   // 2FA状态更新辅助函数
   const updateTwoFAState = (updates) => {
     setTwoFAState((prev) => ({ ...prev, ...updates }));
@@ -207,6 +222,37 @@ const EditChannelModal = (props) => {
     setVerifyLoading(false);
   };
 
+  // 表单导航功能
+  const scrollToSection = (sectionKey) => {
+    const sectionElement = formSectionRefs.current[sectionKey];
+    if (sectionElement) {
+      sectionElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start',
+        inline: 'nearest'
+      });
+    }
+  };
+
+  const navigateToSection = (direction) => {
+    const availableSections = formSections.filter(section => {
+      if (section === 'apiConfig') {
+        return showApiConfigCard;
+      }
+      return true;
+    });
+
+    let newIndex;
+    if (direction === 'up') {
+      newIndex = currentSectionIndex > 0 ? currentSectionIndex - 1 : availableSections.length - 1;
+    } else {
+      newIndex = currentSectionIndex < availableSections.length - 1 ? currentSectionIndex + 1 : 0;
+    }
+    
+    setCurrentSectionIndex(newIndex);
+    scrollToSection(availableSections[newIndex]);
+  };
+
   // 渠道额外设置状态
   const [channelSettings, setChannelSettings] = useState({
     force_format: false,
@@ -214,6 +260,7 @@ const EditChannelModal = (props) => {
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
+    expiration_time: null,
     stream_support: 'BOTH',
   });
   const showApiConfigCard = inputs.type !== 45; // 控制是否显示 API 配置卡片（仅当渠道类型不是 豆包 时显示）
@@ -389,6 +436,17 @@ const EditChannelModal = (props) => {
           data.system_prompt = parsedSettings.system_prompt || '';
           data.system_prompt_override =
             parsedSettings.system_prompt_override || false;
+          // 处理过期时间
+          if (parsedSettings.expiration_time && parsedSettings.expiration_time !== '') {
+            try {
+              // 解析 RFC3339 格式的时间字符串
+              data.expiration_time = new Date(parsedSettings.expiration_time);
+            } catch {
+              data.expiration_time = null;
+            }
+          } else {
+            data.expiration_time = null;
+          }
           data.stream_support = parsedSettings.stream_support || 'BOTH';
         } catch (error) {
           console.error('解析渠道设置失败:', error);
@@ -398,6 +456,7 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
           data.system_prompt_override = false;
+          data.expiration_time = null;
           data.stream_support = 'BOTH';
         }
       } else {
@@ -407,6 +466,7 @@ const EditChannelModal = (props) => {
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
         data.system_prompt_override = false;
+        data.expiration_time = null;
       }
 
       if (data.settings) {
@@ -445,6 +505,7 @@ const EditChannelModal = (props) => {
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
         system_prompt_override: data.system_prompt_override || false,
+        expiration_time: data.expiration_time,
         stream_support: data.stream_support || 'BOTH',
       });
       // console.log(data);
@@ -676,6 +737,8 @@ const EditChannelModal = (props) => {
       fetchModelGroups();
       // 重置手动输入模式状态
       setUseManualInput(false);
+      // 重置导航状态
+      setCurrentSectionIndex(0);
     } else {
       // 统一的模态框关闭重置逻辑
       resetModalState();
@@ -693,6 +756,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: false,
       system_prompt: '',
       system_prompt_override: false,
+      expiration_time: null,
       stream_support: 'BOTH',
     });
     // 重置密钥模式状态
@@ -855,6 +919,15 @@ const EditChannelModal = (props) => {
       system_prompt_override: localInputs.system_prompt_override || false,
       stream_support: localInputs.stream_support || 'BOTH',
     };
+
+    // 处理过期时间设置
+    if (localInputs.expiration_time && localInputs.expiration_time instanceof Date) {
+      // 转换为 RFC3339 格式字符串，保留时区信息
+      channelExtraSettings.expiration_time = localInputs.expiration_time.toISOString();
+    } else {
+      channelExtraSettings.expiration_time = '';
+    }
+
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
     // 清理不需要发送到后端的字段
@@ -864,6 +937,7 @@ const EditChannelModal = (props) => {
     delete localInputs.pass_through_body_enabled;
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
+    delete localInputs.expiration_time;
     delete localInputs.stream_support;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
@@ -1115,7 +1189,41 @@ const EditChannelModal = (props) => {
         visible={props.visible}
         width={isMobile ? '100%' : 600}
         footer={
-          <div className='flex justify-end bg-white'>
+          <div className='flex justify-between items-center bg-white'>
+            <div className='flex gap-2'>
+              <Button
+                size='small'
+                type='tertiary'
+                icon={<IconChevronUp />}
+                onClick={() => navigateToSection('up')}
+                style={{ 
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={t('上一个表单块')}
+              />
+              <Button
+                size='small'
+                type='tertiary'
+                icon={<IconChevronDown />}
+                onClick={() => navigateToSection('down')}
+                style={{ 
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title={t('下一个表单块')}
+              />
+            </div>
             <Space>
               <Button
                 theme='solid'
@@ -1146,10 +1254,14 @@ const EditChannelModal = (props) => {
         >
           {() => (
             <Spin spinning={loading}>
-              <div className='p-2'>
-                <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
-                  {/* Header: Basic Info */}
-                  <div className='flex items-center mb-2'>
+              <div 
+                className='p-2' 
+                ref={formContainerRef}
+              >
+                <div ref={el => formSectionRefs.current.basicInfo = el}>
+                  <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
+                    {/* Header: Basic Info */}
+                    <div className='flex items-center mb-2'>
                     <Avatar
                       size='small'
                       color='blue'
@@ -1603,13 +1715,15 @@ const EditChannelModal = (props) => {
                       }
                     />
                   )}
-                </Card>
+                  </Card>
+                </div>
 
                 {/* API Configuration Card */}
                 {showApiConfigCard && (
-                  <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
-                    {/* Header: API Config */}
-                    <div className='flex items-center mb-2'>
+                  <div ref={el => formSectionRefs.current.apiConfig = el}>
+                    <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
+                      {/* Header: API Config */}
+                      <div className='flex items-center mb-2'>
                       <Avatar
                         size='small'
                         color='green'
@@ -1796,13 +1910,15 @@ const EditChannelModal = (props) => {
                         />
                       </div>
                     )}
-                  </Card>
+                    </Card>
+                  </div>
                 )}
 
                 {/* Model Configuration Card */}
-                <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
-                  {/* Header: Model Config */}
-                  <div className='flex items-center mb-2'>
+                <div ref={el => formSectionRefs.current.modelConfig = el}>
+                  <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
+                    {/* Header: Model Config */}
+                    <div className='flex items-center mb-2'>
                     <Avatar
                       size='small'
                       color='purple'
@@ -1995,12 +2111,14 @@ const EditChannelModal = (props) => {
                     formApi={formApiRef.current}
                     extraText={t('键为请求中的模型名称，值为要替换的模型名称')}
                   />
-                </Card>
+                  </Card>
+                </div>
 
                 {/* Advanced Settings Card */}
-                <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
-                  {/* Header: Advanced Settings */}
-                  <div className='flex items-center mb-2'>
+                <div ref={el => formSectionRefs.current.advancedSettings = el}>
+                  <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
+                    {/* Header: Advanced Settings */}
+                    <div className='flex items-center mb-2'>
                     <Avatar
                       size='small'
                       color='orange'
@@ -2214,12 +2332,14 @@ const EditChannelModal = (props) => {
                       '键为原状态码，值为要复写的状态码，仅影响本地判断',
                     )}
                   />
-                </Card>
+                  </Card>
+                </div>
 
                 {/* Channel Extra Settings Card */}
-                <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
-                  {/* Header: Channel Extra Settings */}
-                  <div className='flex items-center mb-2'>
+                <div ref={el => formSectionRefs.current.channelExtraSettings = el}>
+                  <Card className='!rounded-2xl shadow-sm border-0 mb-6'>
+                    {/* Header: Channel Extra Settings */}
+                    <div className='flex items-center mb-2'>
                     <Avatar
                       size='small'
                       color='violet'
@@ -2331,7 +2451,22 @@ const EditChannelModal = (props) => {
                       '如果用户请求中包含系统提示词，则使用此设置拼接到用户的系统提示词前面',
                     )}
                   />
-                </Card>
+
+                  <Form.DatePicker
+                    field='expiration_time'
+                    label={t('渠道过期时间')}
+                    placeholder={t('请选择过期时间')}
+                    type='dateTime'
+                    format='yyyy-MM-dd HH:mm:ss'
+                    position='topLeft'
+                    onChange={(value) => {
+                      handleChannelSettingsChange('expiration_time', value);
+                    }}
+                    showClear
+                    extraText={t('设置后渠道将在指定时间自动禁用，留空表示永不过期')}
+                  />
+                  </Card>
+                </div>
               </div>
             </Spin>
           )}

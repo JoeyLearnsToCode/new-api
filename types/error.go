@@ -122,6 +122,9 @@ func (e *NewAPIError) MaskSensitiveError() string {
 		return string(e.errorCode)
 	}
 	errStr := e.Err.Error()
+	if e.errorCode == ErrorCodeCountTokenFailed {
+		return errStr
+	}
 	return common.MaskSensitiveInfo(errStr)
 }
 
@@ -163,8 +166,9 @@ func (e *NewAPIError) ToOpenAIError() OpenAIError {
 			Code:    e.errorCode,
 		}
 	}
-
-	result.Message = common.MaskSensitiveInfo(result.Message)
+	if e.errorCode != ErrorCodeCountTokenFailed {
+		result.Message = common.MaskSensitiveInfo(result.Message)
+	}
 	return result
 }
 
@@ -188,7 +192,9 @@ func (e *NewAPIError) ToClaudeError() ClaudeError {
 			Type:    string(e.errorType),
 		}
 	}
-	result.Message = common.MaskSensitiveInfo(result.Message)
+	if e.errorCode != ErrorCodeCountTokenFailed {
+		result.Message = common.MaskSensitiveInfo(result.Message)
+	}
 	return result
 }
 

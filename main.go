@@ -16,6 +16,7 @@ import (
 	"one-api/setting/ratio_setting"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
@@ -96,6 +97,20 @@ func main() {
 	}
 
 	go controller.AutomaticallyTestChannels()
+
+	// Start channel expiration scanner
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		
+		// Run once at startup
+		// service.ScanAndDisableExpiredChannels()
+		
+		// Then run every hour
+		for range ticker.C {
+			service.ScanAndDisableExpiredChannels()
+		}
+	}()
 
 	if common.IsMasterNode && constant.UpdateTask {
 		gopool.Go(func() {

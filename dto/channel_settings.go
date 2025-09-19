@@ -8,6 +8,7 @@ type ChannelSettings struct {
 	SystemPrompt           string `json:"system_prompt,omitempty"`
 	SystemPromptOverride   bool   `json:"system_prompt_override,omitempty"`
 	StreamSupport          string `json:"stream_support,omitempty"` // 流式支持配置：BOTH-支持流式和非流式（默认），STREAM_ONLY-仅支持流式，NON_STREAM_ONLY-仅支持非流式
+	ExpirationTime         string `json:"expiration_time,omitempty"` // RFC3339 format with timezone, e.g., "2006-01-02T15:04:05Z07:00"
 }
 
 type VertexKeyType string
