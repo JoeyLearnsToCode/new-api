@@ -3066,6 +3066,13 @@ const EditChannelModal = (props) => {
         models={fetchedModels}
         selected={inputs.models}
         redirectModels={redirectModelList}
+        modelMapping={(() => {
+          try {
+            return JSON.parse(inputs.model_mapping || '{}');
+          } catch {
+            return {};
+          }
+        })()}
         onConfirm={(selectedModels) => {
           handleInputChange('models', selectedModels);
           showSuccess(t('模型列表已更新'));
