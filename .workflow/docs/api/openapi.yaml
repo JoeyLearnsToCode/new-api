@@ -1,0 +1,1227 @@
+openapi: 3.0.3
+info:
+  title: New API - OpenAI 兼容的 API 中继系统
+  description: |
+    New API 是一个 OpenAI API 兼容的中继系统，支持多种 AI 模型提供商的统一访问。
+    
+    ## 认证方式
+    - Bearer Token: `Authorization: Bearer YOUR_TOKEN`
+    - Session Cookie: 通过登录接口获取
+    
+    ## 特性
+    - OpenAI API 完全兼容
+    - 支持多种 AI 模型提供商
+    - 渠道管理和负载均衡
+    - 用户配额管理
+    - 详细的使用统计
+  version: 1.0.0
+  contact:
+    name: New API
+    url: https://github.com/Calcium-Ion/new-api
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: 本地开发环境
+  - url: https://api.example.com
+    description: 生产环境
+
+security:
+  - BearerAuth: []
+  - SessionAuth: []
+
+paths:
+  # 系统管理接口
+  /api/status:
+    get:
+      summary: 获取系统状态
+      description: 获取系统运行状态信息
+      tags:
+        - 系统管理
+      security: []
+      responses:
+        '200':
+          description: 成功获取系统状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/setup:
+    get:
+      summary: 获取系统设置状态
+      description: 检查系统是否已初始化
+      tags:
+        - 系统管理
+      security: []
+      responses:
+        '200':
+          description: 成功获取设置状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+    post:
+      summary: 初始化系统设置
+      description: 进行系统首次设置
+      tags:
+        - 系统管理
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: 管理员用户名
+                password:
+                  type: string
+                  description: 管理员密码
+                email:
+                  type: string
+                  description: 管理员邮箱
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: 系统设置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # 用户认证接口
+  /api/user/login:
+    post:
+      summary: 用户登录
+      description: 使用用户名和密码登录系统
+      tags:
+        - 用户认证
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: 用户名
+                password:
+                  type: string
+                  description: 密码
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      require_2fa:
+                        type: boolean
+                        description: 是否需要两步验证
+                      user:
+                        $ref: '#/components/schemas/User'
+
+  /api/user/register:
+    post:
+      summary: 用户注册
+      description: 注册新用户账号
+      tags:
+        - 用户认证
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  description: 用户名
+                password:
+                  type: string
+                  description: 密码
+                email:
+                  type: string
+                  description: 邮箱
+                verification_code:
+                  type: string
+                  description: 验证码
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/user/logout:
+    get:
+      summary: 用户登出
+      description: 退出当前用户会话
+      tags:
+        - 用户认证
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # 用户信息管理
+  /api/user/self:
+    get:
+      summary: 获取当前用户信息
+      description: 获取当前登录用户的详细信息
+      tags:
+        - 用户管理
+      responses:
+        '200':
+          description: 成功获取用户信息
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/User'
+    put:
+      summary: 更新当前用户信息
+      description: 更新当前登录用户的信息
+      tags:
+        - 用户管理
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # 渠道管理接口
+  /api/channel:
+    get:
+      summary: 获取所有渠道
+      description: 获取所有渠道列表，支持分页和筛选
+      tags:
+        - 渠道管理
+      parameters:
+        - name: p
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          description: 状态筛选 (enabled/disabled)
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: 渠道类型筛选
+          schema:
+            type: integer
+        - name: tag_mode
+          in: query
+          description: 标签模式
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 成功获取渠道列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Channel'
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+                      type_counts:
+                        type: object
+                        additionalProperties:
+                          type: integer
+    post:
+      summary: 添加渠道
+      description: 添加新的渠道
+      tags:
+        - 渠道管理
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [single, batch, multi_to_single]
+                  description: 添加模式
+                multi_key_mode:
+                  type: string
+                  description: 多密钥模式
+                batch_add_set_key_prefix_2_name:
+                  type: boolean
+                  description: 批量添加时设置密钥前缀为名称
+                channel:
+                  $ref: '#/components/schemas/ChannelCreate'
+              required:
+                - mode
+                - channel
+      responses:
+        '200':
+          description: 添加成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/channel/{id}:
+    get:
+      summary: 获取指定渠道
+      description: 根据ID获取渠道详细信息
+      tags:
+        - 渠道管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 渠道ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功获取渠道信息
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Channel'
+    delete:
+      summary: 删除渠道
+      description: 根据ID删除指定渠道
+      tags:
+        - 渠道管理
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 渠道ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # OpenAI 兼容接口
+  /v1/models:
+    get:
+      summary: 获取可用模型列表
+      description: 获取当前用户可用的所有模型列表
+      tags:
+        - OpenAI 兼容
+      responses:
+        '200':
+          description: 成功获取模型列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    example: "list"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Model'
+
+  /v1/models/{model}:
+    get:
+      summary: 获取指定模型信息
+      description: 根据模型名称获取模型详细信息
+      tags:
+        - OpenAI 兼容
+      parameters:
+        - name: model
+          in: path
+          required: true
+          description: 模型名称
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取模型信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model'
+
+  /v1/chat/completions:
+    post:
+      summary: 聊天完成
+      description: 创建聊天完成请求
+      tags:
+        - OpenAI 兼容
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatCompletionRequest'
+      responses:
+        '200':
+          description: 成功创建聊天完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatCompletionResponse'
+
+  /v1/completions:
+    post:
+      summary: 文本完成
+      description: 创建文本完成请求
+      tags:
+        - OpenAI 兼容
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletionRequest'
+      responses:
+        '200':
+          description: 成功创建文本完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompletionResponse'
+
+  /v1/embeddings:
+    post:
+      summary: 创建嵌入
+      description: 创建文本嵌入向量
+      tags:
+        - OpenAI 兼容
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbeddingRequest'
+      responses:
+        '200':
+          description: 成功创建嵌入
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingResponse'
+
+  /v1/images/generations:
+    post:
+      summary: 图像生成
+      description: 根据文本提示生成图像
+      tags:
+        - OpenAI 兼容
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageGenerationRequest'
+      responses:
+        '200':
+          description: 成功生成图像
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageResponse'
+
+  /v1/audio/transcriptions:
+    post:
+      summary: 音频转录
+      description: 将音频文件转录为文本
+      tags:
+        - OpenAI 兼容
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 音频文件
+                model:
+                  type: string
+                  description: 使用的模型
+                language:
+                  type: string
+                  description: 音频语言
+              required:
+                - file
+                - model
+      responses:
+        '200':
+          description: 转录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptionResponse'
+
+  # 令牌管理接口
+  /api/token:
+    get:
+      summary: 获取所有令牌
+      description: 获取当前用户的所有令牌
+      tags:
+        - 令牌管理
+      parameters:
+        - name: p
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 成功获取令牌列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Token'
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      page_size:
+                        type: integer
+    post:
+      summary: 添加令牌
+      description: 创建新的API令牌
+      tags:
+        - 令牌管理
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenCreate'
+      responses:
+        '200':
+          description: 令牌创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: API Token 认证
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Session Cookie 认证
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: 操作是否成功
+        message:
+          type: string
+          description: 响应消息
+        data:
+          type: object
+          description: 响应数据
+      required:
+        - success
+        - message
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 用户ID
+        username:
+          type: string
+          description: 用户名
+        display_name:
+          type: string
+          description: 显示名称
+        email:
+          type: string
+          description: 邮箱
+        role:
+          type: integer
+          description: 用户角色 (1=普通用户, 10=管理员, 100=超级管理员)
+        status:
+          type: integer
+          description: 用户状态 (1=启用, 2=禁用)
+        quota:
+          type: integer
+          description: 用户配额
+        used_quota:
+          type: integer
+          description: 已用配额
+        request_count:
+          type: integer
+          description: 请求次数
+        group:
+          type: string
+          description: 用户组
+        aff_code:
+          type: string
+          description: 推广码
+        created_time:
+          type: integer
+          description: 创建时间
+
+    UserUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 用户名
+        display_name:
+          type: string
+          description: 显示名称
+        password:
+          type: string
+          description: 密码
+        email:
+          type: string
+          description: 邮箱
+
+    Channel:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 渠道ID
+        name:
+          type: string
+          description: 渠道名称
+        type:
+          type: integer
+          description: 渠道类型
+        status:
+          type: integer
+          description: 渠道状态 (1=启用, 2=手动禁用, 3=自动禁用)
+        models:
+          type: string
+          description: 支持的模型列表
+        model_mapping:
+          type: string
+          description: 模型映射
+        groups:
+          type: string
+          description: 用户组限制
+        base_url:
+          type: string
+          description: 基础URL
+        other:
+          type: string
+          description: 其他配置
+        balance:
+          type: number
+          description: 余额
+        balance_updated_time:
+          type: integer
+          description: 余额更新时间
+        used_quota:
+          type: integer
+          description: 已用配额
+        priority:
+          type: integer
+          description: 优先级
+        weight:
+          type: integer
+          description: 权重
+        created_time:
+          type: integer
+          description: 创建时间
+        test_time:
+          type: integer
+          description: 测试时间
+        response_time:
+          type: integer
+          description: 响应时间
+
+    ChannelCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 渠道名称
+        type:
+          type: integer
+          description: 渠道类型
+        key:
+          type: string
+          description: API密钥
+        models:
+          type: string
+          description: 支持的模型列表
+        model_mapping:
+          type: string
+          description: 模型映射
+        groups:
+          type: string
+          description: 用户组限制
+        base_url:
+          type: string
+          description: 基础URL
+        other:
+          type: string
+          description: 其他配置
+        priority:
+          type: integer
+          description: 优先级
+        weight:
+          type: integer
+          description: 权重
+      required:
+        - name
+        - type
+        - key
+
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 模型ID
+        object:
+          type: string
+          example: "model"
+        created:
+          type: integer
+          description: 创建时间戳
+        owned_by:
+          type: string
+          description: 模型所有者
+        permission:
+          type: array
+          items:
+            type: object
+          description: 权限列表
+        root:
+          type: string
+          description: 根模型
+        parent:
+          type: string
+          description: 父模型
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+          description: 消息角色
+        content:
+          type: string
+          description: 消息内容
+        name:
+          type: string
+          description: 消息发送者名称
+        tool_calls:
+          type: array
+          items:
+            type: object
+          description: 工具调用
+        tool_call_id:
+          type: string
+          description: 工具调用ID
+      required:
+        - role
+        - content
+
+    ChatCompletionRequest:
+      type: object
+      properties:
+        model:
+          type: string
+          description: 使用的模型
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          description: 对话消息列表
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          description: 采样温度
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: 核采样参数
+        n:
+          type: integer
+          minimum: 1
+          description: 生成的完成数量
+        stream:
+          type: boolean
+          description: 是否流式返回
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: 停止序列
+        max_tokens:
+          type: integer
+          description: 最大令牌数
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          description: 存在惩罚
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          description: 频率惩罚
+        logit_bias:
+          type: object
+          description: 令牌偏置
+        user:
+          type: string
+          description: 用户标识
+      required:
+        - model
+        - messages
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 完成ID
+        object:
+          type: string
+          example: "chat.completion"
+        created:
+          type: integer
+          description: 创建时间戳
+        model:
+          type: string
+          description: 使用的模型
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                $ref: '#/components/schemas/ChatMessage'
+              finish_reason:
+                type: string
+                enum: [stop, length, content_filter, tool_calls]
+          description: 选择列表
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+          description: 使用统计
+
+    CompletionRequest:
+      type: object
+      properties:
+        model:
+          type: string
+          description: 使用的模型
+        prompt:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: 提示文本
+        suffix:
+          type: string
+          description: 后缀
+        max_tokens:
+          type: integer
+          description: 最大令牌数
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          description: 采样温度
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: 核采样参数
+        n:
+          type: integer
+          minimum: 1
+          description: 生成的完成数量
+        stream:
+          type: boolean
+          description: 是否流式返回
+        logprobs:
+          type: integer
+          description: 返回的对数概率数量
+        echo:
+          type: boolean
+          description: 是否回显提示
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: 停止序列
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          description: 存在惩罚
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          description: 频率惩罚
+        best_of:
+          type: integer
+          description: 最佳选择数量
+        logit_bias:
+          type: object
+          description: 令牌偏置
+        user:
+          type: string
+          description: 用户标识
+      required:
+        - model
+        - prompt
+
+    CompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: 完成ID
+        object:
+          type: string
+          example: "text_completion"
+        created:
+          type: integer
+          description: 创建时间戳
+        model:
+          type: string
+          description: 使用的模型
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              index:
+                type: integer
+              logprobs:
+                type: object
+              finish_reason:
+                type: string
+                enum: [stop, length, content_filter]
+          description: 选择列表
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+          description: 使用统计
+
+    EmbeddingRequest:
+      type: object
+      properties:
+        model:
+          type: string
+          description: 使用的模型
+        input:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: 输入文本
+        user:
+          type: string
+          description: 用户标识
+      required:
+        - model
+        - input
+
+    EmbeddingResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          example: "list"
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              object:
+                type: string
+                example: "embedding"
+              embedding:
+                type: array
+                items:
+                  type: number
+              index:
+                type: integer
+        model:
+          type: string
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+
+    ImageGenerationRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: 图像描述提示
+        model:
+          type: string
+          description: 使用的模型
+        n:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: 生成图像数量
+        quality:
+          type: string
+          enum: [standard, hd]
+          description: 图像质量
+        response_format:
+          type: string
+          enum: [url, b64_json]
+          description: 响应格式
+        size:
+          type: string
+          enum: [256x256, 512x512, 1024x1024, 1792x1024, 1024x1792]
+          description: 图像尺寸
+        style:
+          type: string
+          enum: [vivid, natural]
+          description: 图像风格
+        user:
+          type: string
+          description: 用户标识
+      required:
+        - prompt
+
+    ImageResponse:
+      type: object
+      properties:
+        created:
+          type: integer
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+              b64_json:
+                type: string
+              revised_prompt:
+                type: string
+
+    TranscriptionResponse:
+      type: object
+      properties:
+        text:
+          type: string
+          description: 转录文本
+
+    Token:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 令牌ID
+        user_id:
+          type: integer
+          description: 用户ID
+        key:
+          type: string
+          description: 令牌密钷
+        status:
+          type: integer
+          description: 令牌状态
+        name:
+          type: string
+          description: 令牌名称
+        created_time:
+          type: integer
+          description: 创建时间
+        accessed_time:
+          type: integer
+          description: 最后访问时间
+        expired_time:
+          type: integer
+          description: 过期时间
+        remain_quota:
+          type: integer
+          description: 剩余配额
+        used_quota:
+          type: integer
+          description: 已用配额
+        unlimited_quota:
+          type: boolean
+          description: 是否无限配额
+        models:
+          type: string
+          description: 可用模型
+
+    TokenCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 令牌名称
+        remain_quota:
+          type: integer
+          description: 剩余配额
+        expired_time:
+          type: integer
+          description: 过期时间 (-1表示永不过期)
+        unlimited_quota:
+          type: boolean
+          description: 是否无限配额
+        models:
+          type: string
+          description: 可用模型列表
+      required:
+        - name
+
+tags:
+  - name: 系统管理
+    description: 系统状态和配置管理
+  - name: 用户认证
+    description: 用户登录、注册、登出
+  - name: 用户管理
+    description: 用户信息管理
+  - name: 渠道管理
+    description: AI 模型渠道管理
+  - name: 令牌管理
+    description: API 令牌管理
+  - name: OpenAI 兼容
+    description: OpenAI API 兼容接口
