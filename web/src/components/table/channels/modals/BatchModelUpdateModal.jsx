@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Modal,
   Button,
@@ -32,7 +31,7 @@ import {
   Divider,
   Collapse,
   Empty,
-  Toast,
+  Input,
 } from '@douyinfe/semi-ui';
 import {
   IconPlay,
@@ -42,10 +41,11 @@ import {
   IconAlertTriangle,
   IconChevronDown,
   IconChevronUp,
+  IconPlus,
 } from '@douyinfe/semi-icons';
 import { API, showError, showSuccess, showInfo } from '../../../../helpers';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // 任务状态枚举
 const TASK_STATUS = {
@@ -98,6 +98,10 @@ const BatchModelUpdateModal = ({
   const [expandedChannels, setExpandedChannels] = useState(new Set());
   const [taskSummary, setTaskSummary] = useState(null);
   const [planOverrides, setPlanOverrides] = useState({});
+
+  // 批量操作状态
+  const [matchNames, setMatchNames] = useState([]);
+  const [currentMatchInput, setCurrentMatchInput] = useState('');
 
   // 计算安全的进度百分比
   const calculateProgressPercent = (current, total) => {
@@ -231,6 +235,10 @@ const BatchModelUpdateModal = ({
       setTaskSummary(null);
       shouldStopRef.current = false;
 
+      // 重置批量操作状态
+      setMatchNames([]);
+      setCurrentMatchInput('');
+
       // 启动计划阶段
       setTimeout(() => {
         executePlanningPhaseInternal(selectedChannels).catch((error) => {
@@ -242,7 +250,6 @@ const BatchModelUpdateModal = ({
 
   // 获取渠道可用模型
   const fetchChannelModels = async (channel) => {
-
     try {
       const response = await API.get(`/api/channel/fetch_models/${channel.id}`);
 
@@ -254,7 +261,6 @@ const BatchModelUpdateModal = ({
         throw new Error(response.data.message || t('获取模型失败'));
       }
     } catch (error) {
-
       throw new Error(error.response?.data?.message || error.message);
     }
   };
@@ -302,8 +308,6 @@ const BatchModelUpdateModal = ({
     const availableModelSet = new Set(availableModels);
     const mappingEntries = Object.entries(modelMapping);
 
-
-
     const plan = { add: [], remove: [] };
 
     // 创建一个集合来跟踪被映射使用的底层模型
@@ -339,18 +343,14 @@ const BatchModelUpdateModal = ({
           if (!availableModelSet.has(originalName)) {
             if (!availableModelSet.has(mappedName)) {
               shouldRemove = true;
-
             } else {
-
             }
           } else {
-
           }
         } else {
           // 非映射模型：检查是否直接在可用列表中
           if (!availableModelSet.has(model)) {
             shouldRemove = true;
-
           }
         }
 
@@ -359,7 +359,6 @@ const BatchModelUpdateModal = ({
         }
       });
     }
-
 
     return plan;
   };
@@ -546,26 +545,6 @@ const BatchModelUpdateModal = ({
     showInfo(t('正在停止任务...'));
   };
 
-  // 调整计划
-  const toggleModelInPlan = (channelId, modelName, action) => {
-    setPlanOverrides((prev) => {
-      const channelOverrides = prev[channelId] || { add: {}, remove: {} };
-      const actionOverrides = channelOverrides[action] || {};
-      const currentState = actionOverrides[modelName] || 'active';
-      const newState = currentState === 'active' ? 'inactive' : 'active';
-      return {
-        ...prev,
-        [channelId]: {
-          ...channelOverrides,
-          [action]: {
-            ...actionOverrides,
-            [modelName]: newState,
-          },
-        },
-      };
-    });
-  };
-
   // 切换渠道展开状态
   const toggleChannelExpanded = (channelId) => {
     setExpandedChannels((prev) => {
@@ -577,6 +556,164 @@ const BatchModelUpdateModal = ({
       }
       return newSet;
     });
+  };
+
+  // 批量操作：全选（启用所有模型）
+  const handleSelectAll = () => {
+    const newOverrides = {};
+    Object.keys(channelPlans).forEach((channelId) => {
+      const plan = channelPlans[channelId];
+      newOverrides[channelId] = {
+        add: {},
+        remove: {},
+      };
+
+      // 启用所有添加操作
+      plan.add.forEach((model) => {
+        newOverrides[channelId].add[model] = 'active';
+      });
+
+      // 启用所有删除操作
+      plan.remove.forEach((model) => {
+        newOverrides[channelId].remove[model] = 'active';
+      });
+    });
+    setPlanOverrides(newOverrides);
+    showSuccess(t('已启用所有计划中的模型操作'));
+  };
+
+  // 批量操作：清空（禁用所有模型）
+  const handleClearAll = () => {
+    const newOverrides = {};
+    Object.keys(channelPlans).forEach((channelId) => {
+      const plan = channelPlans[channelId];
+      newOverrides[channelId] = {
+        add: {},
+        remove: {},
+      };
+
+      // 禁用所有添加操作
+      plan.add.forEach((model) => {
+        newOverrides[channelId].add[model] = 'inactive';
+      });
+
+      // 禁用所有删除操作
+      plan.remove.forEach((model) => {
+        newOverrides[channelId].remove[model] = 'inactive';
+      });
+    });
+    setPlanOverrides(newOverrides);
+    showSuccess(t('已禁用所有计划中的模型操作'));
+  };
+
+  // 添加匹配名称 - 支持多种分隔符
+  const addMatchName = () => {
+    if (!currentMatchInput.trim()) return;
+
+    // 支持的分隔符：、,;
+    const separators = /[、,;]+/;
+    const newNames = currentMatchInput
+      .split(separators)
+      .map((name) => name.trim())
+      .filter((name) => name && !matchNames.includes(name));
+
+    if (newNames.length > 0) {
+      setMatchNames([...matchNames, ...newNames]);
+      setCurrentMatchInput('');
+    }
+  };
+
+  // 删除匹配名称
+  const removeMatchName = (nameToRemove) => {
+    setMatchNames(matchNames.filter((name) => name !== nameToRemove));
+  };
+
+  // 批量操作：选中匹配（启用包含matchNames的模型）
+  const handleSelectMatching = () => {
+    if (matchNames.length === 0) {
+      showError(t('请先添加要匹配的模型名称'));
+      return;
+    }
+
+    const newOverrides = { ...planOverrides };
+    let affectedCount = 0;
+
+    Object.keys(channelPlans).forEach((channelId) => {
+      const plan = channelPlans[channelId];
+
+      if (!newOverrides[channelId]) {
+        newOverrides[channelId] = { add: {}, remove: {} };
+      }
+
+      // 检查添加列表中的模型
+      plan.add.forEach((model) => {
+        const shouldMatch = matchNames.some((matchName) =>
+          model.toLowerCase().includes(matchName.toLowerCase()),
+        );
+        if (shouldMatch) {
+          newOverrides[channelId].add[model] = 'active';
+          affectedCount++;
+        }
+      });
+
+      // 检查删除列表中的模型
+      plan.remove.forEach((model) => {
+        const shouldMatch = matchNames.some((matchName) =>
+          model.toLowerCase().includes(matchName.toLowerCase()),
+        );
+        if (shouldMatch) {
+          newOverrides[channelId].remove[model] = 'active';
+          affectedCount++;
+        }
+      });
+    });
+
+    setPlanOverrides(newOverrides);
+    showSuccess(t(`已启用 ${affectedCount} 个匹配的模型操作`));
+  };
+
+  // 批量操作：不选匹配（禁用包含matchNames的模型）
+  const handleUnselectMatching = () => {
+    if (matchNames.length === 0) {
+      showError(t('请先添加要匹配的模型名称'));
+      return;
+    }
+
+    const newOverrides = { ...planOverrides };
+    let affectedCount = 0;
+
+    Object.keys(channelPlans).forEach((channelId) => {
+      const plan = channelPlans[channelId];
+
+      if (!newOverrides[channelId]) {
+        newOverrides[channelId] = { add: {}, remove: {} };
+      }
+
+      // 检查添加列表中的模型
+      plan.add.forEach((model) => {
+        const shouldMatch = matchNames.some((matchName) =>
+          model.toLowerCase().includes(matchName.toLowerCase()),
+        );
+        if (shouldMatch) {
+          newOverrides[channelId].add[model] = 'inactive';
+          affectedCount++;
+        }
+      });
+
+      // 检查删除列表中的模型
+      plan.remove.forEach((model) => {
+        const shouldMatch = matchNames.some((matchName) =>
+          model.toLowerCase().includes(matchName.toLowerCase()),
+        );
+        if (shouldMatch) {
+          newOverrides[channelId].remove[model] = 'inactive';
+          affectedCount++;
+        }
+      });
+    });
+
+    setPlanOverrides(newOverrides);
+    showSuccess(t(`已禁用 ${affectedCount} 个匹配的模型操作`));
   };
 
   // 渲染渠道状态
@@ -791,6 +928,95 @@ const BatchModelUpdateModal = ({
     );
   };
 
+  // 渲染批量操作控件
+  const renderBatchOperations = () => {
+    return (
+      <Card title={t('批量操作')} style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* 全选和清空按钮 */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button type='primary' onClick={handleSelectAll} size='small'>
+              {t('全选')}
+            </Button>
+            <Button type='danger' onClick={handleClearAll} size='small'>
+              {t('清空')}
+            </Button>
+          </div>
+
+          <Divider margin={8} />
+
+          {/* 模型名称匹配输入 */}
+          <div>
+            <Typography.Text
+              strong
+              style={{ marginBottom: 8, display: 'block' }}
+            >
+              {t('模型名称匹配')}
+            </Typography.Text>
+
+            {/* 输入框和添加按钮 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <Input
+                value={currentMatchInput}
+                onChange={setCurrentMatchInput}
+                placeholder={t('输入模型名称，支持、,;分割')}
+                size='small'
+                onEnterPress={addMatchName}
+                style={{ flex: 1 }}
+              />
+              <Button
+                icon={<IconPlus />}
+                onClick={addMatchName}
+                size='small'
+                disabled={!currentMatchInput.trim()}
+              >
+                {t('添加')}
+              </Button>
+            </div>
+
+            {/* 已添加的匹配名称 */}
+            {matchNames.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <Space wrap>
+                  {matchNames.map((name) => (
+                    <Tag
+                      key={name}
+                      closable
+                      onClose={() => removeMatchName(name)}
+                      color='blue'
+                    >
+                      {name}
+                    </Tag>
+                  ))}
+                </Space>
+              </div>
+            )}
+
+            {/* 匹配操作按钮 */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                type='secondary'
+                onClick={handleSelectMatching}
+                size='small'
+                disabled={matchNames.length === 0}
+              >
+                {t('选中匹配')}
+              </Button>
+              <Button
+                type='tertiary'
+                onClick={handleUnselectMatching}
+                size='small'
+                disabled={matchNames.length === 0}
+              >
+                {t('不选匹配')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
   // 渲染任务摘要
   const renderTaskSummary = () => {
     if (!taskSummary) return null;
@@ -989,36 +1215,41 @@ const BatchModelUpdateModal = ({
           </div>
 
           {readyChannels.length > 0 && (
-            <Card title={t('更新计划')} style={{ marginBottom: 16 }}>
-              <Text type='secondary' size='small'>
-                {updateMode === 'add_new' &&
-                  t('点击模型标签可以取消添加操作，再次点击可以恢复')}
-                {updateMode === 'remove_invalid' &&
-                  t('点击模型标签可以取消删除操作，再次点击可以恢复')}
-                {updateMode === 'full_update' &&
-                  t('点击模型标签可以取消对应操作，再次点击可以恢复')}
-              </Text>
-              <List
-                dataSource={readyChannels}
-                renderItem={(channel) => (
-                  <List.Item>
-                    <div style={{ width: '100%' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text strong>{channel.name}</Text>
-                        {renderChannelStatus(channel)}
+            <>
+              {/* 批量操作控件 */}
+              {renderBatchOperations()}
+
+              <Card title={t('更新计划')} style={{ marginBottom: 16 }}>
+                <Text type='secondary' size='small'>
+                  {updateMode === 'add_new' &&
+                    t('点击模型标签可以取消添加操作，再次点击可以恢复')}
+                  {updateMode === 'remove_invalid' &&
+                    t('点击模型标签可以取消删除操作，再次点击可以恢复')}
+                  {updateMode === 'full_update' &&
+                    t('点击模型标签可以取消对应操作，再次点击可以恢复')}
+                </Text>
+                <List
+                  dataSource={readyChannels}
+                  renderItem={(channel) => (
+                    <List.Item>
+                      <div style={{ width: '100%' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Text strong>{channel.name}</Text>
+                          {renderChannelStatus(channel)}
+                        </div>
+                        {renderPlanDetails(channel)}
                       </div>
-                      {renderPlanDetails(channel)}
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </Card>
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            </>
           )}
 
           {failedChannels.length > 0 && (
