@@ -60,6 +60,10 @@ export const useChannelsData = () => {
   const [enableTagMode, setEnableTagMode] = useState(false);
   const [showBatchSetTag, setShowBatchSetTag] = useState(false);
   const [batchSetTagValue, setBatchSetTagValue] = useState('');
+  const [showBatchModelUpdate, setShowBatchModelUpdate] = useState(false);
+  const [showModelUpdateModeModal, setShowModelUpdateModeModal] =
+    useState(false);
+  const [updateMode, setUpdateMode] = useState('full_update');
   const [compactMode, setCompactMode] = useTableCompactMode('channels');
 
   // Column visibility states
@@ -84,7 +88,7 @@ export const useChannelsData = () => {
   const [selectedModelKeys, setSelectedModelKeys] = useState([]);
   const [isBatchTesting, setIsBatchTesting] = useState(false);
   const [modelTablePage, setModelTablePage] = useState(1);
-const [selectedEndpointType, setSelectedEndpointType] = useState('');
+  const [selectedEndpointType, setSelectedEndpointType] = useState('');
 
   // 使用 ref 来避免闭包问题，类似旧版实现
   const shouldStopBatchTestingRef = useRef(false);
@@ -141,6 +145,17 @@ const [selectedEndpointType, setSelectedEndpointType] = useState('');
     fetchGroups().then();
     loadChannelModels().then();
   }, []);
+
+  // 同步selectedChannels，确保在channels更新后使用最新的渠道数据
+  useEffect(() => {
+    if (selectedChannels.length > 0 && channels.length > 0) {
+      const selectedIds = selectedChannels.map((channel) => channel.id);
+      const updatedSelected = channels.filter((channel) =>
+        selectedIds.includes(channel.id),
+      );
+      setSelectedChannels(updatedSelected);
+    }
+  }, [channels]); // 监听channels变化
 
   // Column visibility management
   const getDefaultColumnVisibility = () => {
@@ -1042,6 +1057,12 @@ const [selectedEndpointType, setSelectedEndpointType] = useState('');
     setShowBatchSetTag,
     batchSetTagValue,
     setBatchSetTagValue,
+    showBatchModelUpdate,
+    setShowBatchModelUpdate,
+    showModelUpdateModeModal,
+    setShowModelUpdateModeModal,
+    updateMode,
+    setUpdateMode,
 
     // Column states
     visibleColumns,

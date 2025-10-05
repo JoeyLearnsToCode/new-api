@@ -32,6 +32,7 @@ const ChannelsActions = ({
   enableBatchDelete,
   batchDeleteChannels,
   setShowBatchSetTag,
+  setShowModelUpdateModeModal,
   testAllChannels,
   fixChannelsAbilities,
   updateAllChannelsBalance,
@@ -52,6 +53,7 @@ const ChannelsActions = ({
   activePage,
   pageSize,
   setActivePage,
+  selectedChannels,
   t,
 }) => {
   return (
@@ -84,6 +86,16 @@ const ChannelsActions = ({
             className='w-full md:w-auto'
           >
             {t('批量设置标签')}
+          </Button>
+
+          <Button
+            size='small'
+            disabled={!enableBatchDelete || selectedChannels.length === 0}
+            type='tertiary'
+            onClick={() => setShowModelUpdateModeModal(true)}
+            className='w-full md:w-auto'
+          >
+            {t('更新模型')}
           </Button>
 
           <Dropdown
