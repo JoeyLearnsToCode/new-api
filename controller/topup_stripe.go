@@ -225,7 +225,8 @@ func genStripeLink(referenceId string, customerId string, email string, amount i
 				Quantity: stripe.Int64(amount),
 			},
 		},
-		Mode: stripe.String(string(stripe.CheckoutSessionModePayment)),
+		Mode:                stripe.String(string(stripe.CheckoutSessionModePayment)),
+		AllowPromotionCodes: stripe.Bool(setting.StripePromotionCodesEnabled),
 	}
 
 	if "" == customerId {
@@ -257,7 +258,7 @@ func GetChargedAmount(count float64, user model.User) float64 {
 
 func getStripePayMoney(amount float64, group string) float64 {
 	originalAmount := amount
-	if !common.DisplayInCurrencyEnabled {
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
 		amount = amount / common.QuotaPerUnit
 	}
 	// Using float64 for monetary calculations is acceptable here due to the small amounts involved
@@ -278,7 +279,7 @@ func getStripePayMoney(amount float64, group string) float64 {
 
 func getStripeMinTopup() int64 {
 	minTopup := setting.StripeMinTopUp
-	if !common.DisplayInCurrencyEnabled {
+	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
 		minTopup = minTopup * int(common.QuotaPerUnit)
 	}
 	return int64(minTopup)
