@@ -245,6 +245,7 @@ func CovertGemini2OpenAI(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 		functions := make([]dto.FunctionRequest, 0, len(textRequest.Tools))
 		googleSearch := false
 		codeExecution := false
+		urlContext := false
 		for _, tool := range textRequest.Tools {
 			if tool.Function.Name == "googleSearch" {
 				googleSearch = true
@@ -252,6 +253,10 @@ func CovertGemini2OpenAI(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 			}
 			if tool.Function.Name == "codeExecution" {
 				codeExecution = true
+				continue
+			}
+			if tool.Function.Name == "urlContext" {
+				urlContext = true
 				continue
 			}
 			if tool.Function.Parameters != nil {
@@ -279,6 +284,11 @@ func CovertGemini2OpenAI(c *gin.Context, textRequest dto.GeneralOpenAIRequest, i
 		if googleSearch {
 			geminiTools = append(geminiTools, dto.GeminiChatTool{
 				GoogleSearch: make(map[string]string),
+			})
+		}
+		if urlContext {
+			geminiTools = append(geminiTools, dto.GeminiChatTool{
+				URLContext: make(map[string]string),
 			})
 		}
 		if len(functions) > 0 {
@@ -951,9 +961,15 @@ func GeminiChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *
 			// send first response
 			emptyResponse := helper.GenerateStartEmptyResponse(id, createAt, info.UpstreamModelName, nil)
 			if response.IsToolCall() {
-				emptyResponse.Choices[0].Delta.ToolCalls = make([]dto.ToolCallResponse, 1)
-				emptyResponse.Choices[0].Delta.ToolCalls[0] = *response.GetFirstToolCall()
-				emptyResponse.Choices[0].Delta.ToolCalls[0].Function.Arguments = ""
+				if len(emptyResponse.Choices) > 0 && len(response.Choices) > 0 {
+					toolCalls := response.Choices[0].Delta.ToolCalls
+					copiedToolCalls := make([]dto.ToolCallResponse, len(toolCalls))
+					for idx := range toolCalls {
+						copiedToolCalls[idx] = toolCalls[idx]
+						copiedToolCalls[idx].Function.Arguments = ""
+					}
+					emptyResponse.Choices[0].Delta.ToolCalls = copiedToolCalls
+				}
 				finishReason = constant.FinishReasonToolCalls
 				err = handleStream(c, info, emptyResponse)
 				if err != nil {
