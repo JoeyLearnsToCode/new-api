@@ -1851,7 +1851,7 @@
   "计划阶段只寻找、列出需要删除的无效模型。适用于清理过期模型。": "La phase de planification ne recherche et ne liste que les modèles invalides à supprimer. Convient pour nettoyer les modèles expirés.",
   "添加新模型": "Ajouter de nouveaux modèles",
   "仅添加渠道新支持的模型，不删除现有模型": "Ajouter uniquement les modèles nouvellement pris en charge par les canaux, sans supprimer les modèles existants",
-  "计划阶段只寻找、列出尚未添加的新模型。添加模式下，不检测、提示现有模型是否有效、需要删除。": "La phase de planification ne recherche et ne liste que les nouveaux modèles pas encore ajoutés. En mode ajout, les modèles existants ne sont pas vérifiés pour leur validité ou suppression.",
+  "计划阶段只寻找、列出尚未添加的新模型。": "La phase de planification ne recherche et ne liste que les nouveaux modèles pas encore ajoutés.",
   "完整更新": "Mise à jour complète",
   "同时删除无效模型和添加新模型": "Supprimer les modèles invalides et ajouter de nouveaux modèles simultanément",
   "现有的更新模式，结合了以上两种模式。全面同步渠道模型列表。": "Le mode de mise à jour existant qui combine les deux approches ci-dessus. Synchronise complètement les listes de modèles de canaux.",
@@ -1921,9 +1921,7 @@
   "底层模型不可用，将被删除": "Modèle sous-jacent non disponible, sera supprimé",
   "映射模型": "Modèle mappé",
   "被其他模型映射": "Mappé par d'autres modèles",
-  "点击失活": "Cliquez pour désactiver",
   "点击恢复": "Cliquez pour réactiver",
-  "失活": "Désactivé",
   "激活": "Activé",
   "点击模型标签可切换激活状态": "Cliquez sur une étiquette de modèle pour basculer l'état",
 

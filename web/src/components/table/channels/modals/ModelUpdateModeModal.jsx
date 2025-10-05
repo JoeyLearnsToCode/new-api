@@ -78,7 +78,7 @@ const ModelUpdateModeModal = ({ visible, onCancel, onConfirm, t }) => {
       title: t('添加新模型'),
       description: t('仅添加渠道新支持的模型，不删除现有模型'),
       detail: t(
-        '计划阶段只寻找、列出尚未添加的新模型。添加模式下，不检测、提示现有模型是否有效、需要删除。',
+        '计划阶段只寻找、列出尚未添加的新模型。',
       ),
     },
     {
@@ -130,6 +130,7 @@ const ModelUpdateModeModal = ({ visible, onCancel, onConfirm, t }) => {
                     : '1px solid #d9d9d9',
                 backgroundColor:
                   selectedMode === option.value ? '#f6ffed' : 'transparent',
+                width: '100%',
               }}
               bodyStyle={{ padding: 16 }}
               onClick={() => setSelectedMode(option.value)}
