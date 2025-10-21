@@ -3,14 +3,15 @@ package service
 import (
 	"fmt"
 	"net/http"
-	"one-api/common"
-	"one-api/constant"
-	"one-api/dto"
-	"one-api/model"
-	"one-api/setting/operation_setting"
-	"one-api/types"
 	"strings"
 	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/types"
 )
 
 func formatNotifyType(channelId int, status int) string {
@@ -75,6 +76,8 @@ func ShouldDisableChannel(channelType int, err *types.NewAPIError) bool {
 	case "billing_not_active":
 		return true
 	case "pre_consume_token_quota_failed":
+		return true
+	case "Arrearage":
 		return true
 	}
 	switch oaiErr.Type {

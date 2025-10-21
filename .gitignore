@@ -10,6 +10,11 @@ web/dist
 .env
 one-api
 one-api-freebsd
+new-api
 .DS_Store
 tiktoken_cache
 .eslintcache
+.gocache
+
+electron/node_modules
+electron/dist

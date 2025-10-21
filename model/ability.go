@@ -3,11 +3,12 @@ package model
 import (
 	"errors"
 	"fmt"
-	"one-api/common"
-	"one-api/constant"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"

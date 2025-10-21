@@ -2,7 +2,6 @@
 package model
 
 import (
-	"one-api/setting/model_setting"
 	"reflect"
 	"sort"
 	"testing"

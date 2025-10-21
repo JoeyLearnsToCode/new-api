@@ -3,7 +3,7 @@ package model_setting
 import (
 	"bytes"
 	"encoding/json"
-	"one-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/config"
 )
 
 type GlobalSettings struct {
