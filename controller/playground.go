@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/types"
@@ -35,6 +36,18 @@ func Playground(c *gin.Context) {
 	modelName := c.GetString("original_model")
 
 	userId := c.GetInt("id")
+
+	// 让操练场选择的分组生效
+	playgroundRequest := &dto.PlayGroundRequest{}
+	err := common.UnmarshalBodyReusable(c, playgroundRequest)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		return
+	}
+	if playgroundRequest.Group != "" {
+		group = playgroundRequest.Group
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, group)
+	}
 
 	// Write user context to ensure acceptUnsetRatio is available
 	userCache, err := model.GetUserCache(userId)
