@@ -2,12 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
 	"one-api/dto"
+	"one-api/logger"
 	"one-api/model"
 	"one-api/relay"
 	"one-api/relay/channel/ai360"
@@ -17,7 +16,12 @@ import (
 	relaycommon "one-api/relay/common"
 	"one-api/setting"
 	"one-api/setting/model_setting"
+	"regexp"
+	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 )
 
 // https://platform.openai.com/docs/api-reference/models/list
@@ -190,17 +194,32 @@ func ListModels(c *gin.Context, modelType int) {
 			// 如果全局模型重定向的目标模型中有至少一个存在于用户可用模型中，则该全局模型重定向的模型对用户可用，添加到 userOpenAiModels 中
 			shouldAddModel := false
 			for _, targetModel := range targetModels {
+				if strings.HasPrefix(targetModel, "/") {
+					re, err := regexp.Compile(targetModel[1:])
+					if err != nil {
+						logger.LogInfo(c, fmt.Sprintf("invalid regex: %s, err: %+v", targetModel, err))
+					} else {
+						for _, userModel := range userOpenAiModels {
+							if re.MatchString(userModel.Id) {
+								shouldAddModel = true
+								break
+							}
+						}
+					}
+				}
 				if _, exists := existingUserModels[targetModel]; exists {
 					shouldAddModel = true
+				}
+				if shouldAddModel {
 					break
 				}
 			}
 			if shouldAddModel {
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
-					Id:         model,
-					Object:     "model",
-					Created:    1626777600,
-					OwnedBy:    "custom",
+					Id:      model,
+					Object:  "model",
+					Created: 1626777600,
+					OwnedBy: "custom",
 				})
 			}
 		}
