@@ -16,10 +16,10 @@ import (
 	relaycommon "one-api/relay/common"
 	"one-api/setting"
 	"one-api/setting/model_setting"
-	"regexp"
 	"strings"
 	"time"
 
+	"github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -195,12 +195,12 @@ func ListModels(c *gin.Context, modelType int) {
 			shouldAddModel := false
 			for _, targetModel := range targetModels {
 				if strings.HasPrefix(targetModel, "/") {
-					re, err := regexp.Compile(targetModel[1:])
+					re, err := regexp2.Compile(targetModel[1:], regexp2.None)
 					if err != nil {
 						logger.LogInfo(c, fmt.Sprintf("invalid regex: %s, err: %+v", targetModel, err))
 					} else {
 						for _, userModel := range userOpenAiModels {
-							if re.MatchString(userModel.Id) {
+							if ok, err := re.MatchString(userModel.Id); err == nil && ok {
 								shouldAddModel = true
 								break
 							}

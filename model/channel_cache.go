@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 )
 
@@ -131,7 +132,7 @@ func CacheGetRandomSatisfiedChannel(c *gin.Context, group string, model string, 
 }
 
 // resolveSingleGlobalModelMapping 将单个模型映射到目标模型列表
-func resolveSingleGlobalModelMapping(model string, globalModelMapping *model_setting.GlobalModelMapping) []string {
+func resolveSingleGlobalModelMapping(model string, globalModelMapping *model_setting.GlobalModelMapping, regexCache map[string]*regexp2.Regexp) []string {
 	// 优先检查单向映射
 	if len(globalModelMapping.OneWayModelMappings) > 0 && len(globalModelMapping.OneWayModelMappings[model]) > 0 {
 		return globalModelMapping.OneWayModelMappings[model]
@@ -142,6 +143,36 @@ func resolveSingleGlobalModelMapping(model string, globalModelMapping *model_set
 		for _, equivalent := range globalModelMapping.Equivalents {
 			if common.StringsContains(equivalent, model) {
 				return equivalent
+			}
+
+			for _, eq := range equivalent {
+				// 不处理都是、都不是正则的情况
+				isRe1 := strings.HasPrefix(eq, "/")
+				isRe2 := strings.HasPrefix(model, "/")
+				if isRe1 && isRe2 || !isRe1 && !isRe2 {
+					continue
+				}
+				var pattern, str string
+				if isRe1 {
+					pattern = eq[1:]
+					str = model
+				} else {
+					pattern = model[1:]
+					str = eq
+				}
+				
+				// 使用缓存避免重复编译正则表达式
+				re, ok := regexCache[pattern]
+				if !ok {
+					re = regexp2.MustCompile(pattern, regexp2.None)
+					regexCache[pattern] = re
+				}
+				
+				if matched, err := re.MatchString(str); err != nil {
+					panic(err)
+				} else if matched {
+					return equivalent
+				}
 			}
 		}
 	}
@@ -157,6 +188,9 @@ func resolveGlobalModelMappings(model string, globalModelMapping *model_setting.
 	currentModels := []string{model}
 	usingGlobalModelMapping := false
 	
+	// 创建正则表达式缓存，避免重复编译
+	regexCache := make(map[string]*regexp2.Regexp)
+
 	const maxIterations = 5
 	for i := 0; i < maxIterations; i++ {
 		var nextModels []string
@@ -168,7 +202,7 @@ func resolveGlobalModelMappings(model string, globalModelMapping *model_setting.
 				continue // 跳过已处理的模型
 			}
 
-			mappedModels := resolveSingleGlobalModelMapping(currentModel, globalModelMapping)
+			mappedModels := resolveSingleGlobalModelMapping(currentModel, globalModelMapping, regexCache)
 			processedModels[currentModel] = true
 
 			// 检查是否有新的映射结果
