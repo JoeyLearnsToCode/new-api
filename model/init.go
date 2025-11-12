@@ -4,8 +4,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"log"
-	"regexp"
 
+	"github.com/dlclark/regexp2"
 	gosqlite "github.com/glebarez/go-sqlite"
 )
 
@@ -21,11 +21,12 @@ func regexpFunc(fnCtx *gosqlite.FunctionContext, args []driver.Value) (driver.Va
 	if !ok {
 		return nil, errors.New("s must be a string")
 	}
-	match, err := regexp.MatchString(pattern, s)
+
+	re, err := regexp2.Compile(pattern, regexp2.None)
 	if err != nil {
 		return nil, err
 	}
-	return match, nil
+	return re.MatchString(s)
 }
 
 func init() {
