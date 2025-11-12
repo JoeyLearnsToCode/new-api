@@ -60,12 +60,13 @@ func GetAllEnableAbilities() []Ability {
 	return abilities
 }
 
-func getPriority(group string, models []string, retry int) (int, error) {
+func getPriority(group, modelQuery string, modelArgs []any, retry int) (int, error) {
 
 	var priorities []int
 	err := DB.Model(&Ability{}).
 		Select("DISTINCT(priority)").
-		Where(commonGroupCol+" = ? and model in ? and enabled = ?", group, models, true).
+		Where(commonGroupCol+" = ? and enabled = ?", group, true).
+		Where(modelQuery, modelArgs...).
 		Order("priority DESC").              // 按优先级降序排序
 		Pluck("priority", &priorities).Error // Pluck用于将查询的结果直接扫描到一个切片中
 
@@ -142,10 +143,6 @@ func applyRetryFiltering(abilities []Ability, retry int) ([]Ability, error) {
 	return filtered, nil
 }
 
-func getChannelQuery(group string, models []string) *gorm.DB {
-	return DB.Where(commonGroupCol+" = ? and model in ? and enabled = ?", group, models, true)
-}
-
 func filterAbilities(filter *ExtraChannelFilter, abilities []Ability) (filteredAbilities []Ability, err error) {
 	filteredAbilities = abilities
 	if filter == nil {
@@ -200,6 +197,47 @@ func filterAbilities(filter *ExtraChannelFilter, abilities []Ability) (filteredA
 		}
 	}
 	return
+}
+
+func models2Condition(models []string) (query string, args []any) {
+	var normalModels []string
+	var regexModels []string
+
+	// 分离普通字符串和正则表达式
+	for _, model := range models {
+		if strings.HasPrefix(model, "/") {
+			// 去掉开头的 '/' 符号
+			regexModels = append(regexModels, model[1:])
+		} else {
+			normalModels = append(normalModels, model)
+		}
+	}
+
+	var conditions []string
+
+	// 处理普通字符串组
+	if len(normalModels) > 0 {
+		conditions = append(conditions, "model IN ?")
+		args = append(args, normalModels)
+	}
+
+	// 处理正则表达式组
+	for _, regex := range regexModels {
+		conditions = append(conditions, "model REGEXP ?")
+		args = append(args, regex)
+	}
+
+	// 用 OR 连接所有条件
+	query = strings.Join(conditions, " OR ")
+
+	return query, args
+}
+
+func getChannelQuery(group string, models []string) *gorm.DB {
+	modelQuery, modelArgs := models2Condition(models)
+	channelQuery := DB.Where(commonGroupCol+" = ? and enabled = ?", group, true).
+		Where(modelQuery, modelArgs...)
+	return channelQuery
 }
 
 func GetRandomSatisfiedChannel(group string, models []string, retry int, filter *ExtraChannelFilter) (*Channel, *Ability, error) {

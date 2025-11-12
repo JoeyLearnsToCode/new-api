@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/relay/channel/ai360"
@@ -17,6 +18,9 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/model_setting"
+	"regexp"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -191,17 +195,32 @@ func ListModels(c *gin.Context, modelType int) {
 			// 如果全局模型重定向的目标模型中有至少一个存在于用户可用模型中，则该全局模型重定向的模型对用户可用，添加到 userOpenAiModels 中
 			shouldAddModel := false
 			for _, targetModel := range targetModels {
+				if strings.HasPrefix(targetModel, "/") {
+					re, err := regexp.Compile(targetModel[1:])
+					if err != nil {
+						logger.LogInfo(c, fmt.Sprintf("invalid regex: %s, err: %+v", targetModel, err))
+					} else {
+						for _, userModel := range userOpenAiModels {
+							if re.MatchString(userModel.Id) {
+								shouldAddModel = true
+								break
+							}
+						}
+					}
+				}
 				if _, exists := existingUserModels[targetModel]; exists {
 					shouldAddModel = true
+				}
+				if shouldAddModel {
 					break
 				}
 			}
 			if shouldAddModel {
 				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
-					Id:         model,
-					Object:     "model",
-					Created:    1626777600,
-					OwnedBy:    "custom",
+					Id:      model,
+					Object:  "model",
+					Created: 1626777600,
+					OwnedBy: "custom",
 				})
 			}
 		}
