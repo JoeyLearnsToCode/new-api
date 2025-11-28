@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -38,6 +40,8 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 	}
 }
 
+var envVariableRegex = regexp.MustCompile(`\$\{env:([a-zA-Z0-9_]+)\}`)
+
 // processHeaderOverride 处理请求头覆盖，支持变量替换
 // 支持的变量：{api_key}
 func processHeaderOverride(info *common.RelayInfo) (map[string]string, error) {
@@ -52,6 +56,18 @@ func processHeaderOverride(info *common.RelayInfo) (map[string]string, error) {
 		if strings.Contains(str, "{api_key}") {
 			str = strings.ReplaceAll(str, "{api_key}", info.ApiKey)
 		}
+
+		// 替换环境变量 ${env:KEY_NAME}
+		str = envVariableRegex.ReplaceAllStringFunc(str, func(match string) string {
+			parts := envVariableRegex.FindStringSubmatch(match)
+			if len(parts) == 2 {
+				keyName := parts[1]
+				if val, exists := os.LookupEnv(keyName); exists {
+					return val
+				}
+			}
+			return match
+		})
 
 		headerOverride[k] = str
 	}
