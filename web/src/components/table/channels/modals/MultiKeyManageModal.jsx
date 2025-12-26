@@ -110,7 +110,6 @@ const MultiKeyManageModal = ({ visible, onCancel, channel, onRefresh }) => {
         showError(res.data.message);
       }
     } catch (error) {
-      console.error(error);
       showError(t('获取密钥状态失败'));
     } finally {
       setLoading(false);

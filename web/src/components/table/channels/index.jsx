@@ -28,6 +28,8 @@ import ChannelsTabs from './ChannelsTabs';
 import { useChannelsData } from '../../../hooks/channels/useChannelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import BatchTagModal from './modals/BatchTagModal';
+import BatchModelUpdateModal from './modals/BatchModelUpdateModal';
+import ModelUpdateModeModal from './modals/ModelUpdateModeModal';
 import ModelTestModal from './modals/ModelTestModal';
 import ColumnSelectorModal from './modals/ColumnSelectorModal';
 import EditChannelModal from './modals/EditChannelModal';
@@ -56,6 +58,24 @@ const ChannelsPage = () => {
         editingChannel={channelsData.editingChannel}
       />
       <BatchTagModal {...channelsData} />
+      <ModelUpdateModeModal
+        visible={channelsData.showModelUpdateModeModal}
+        onCancel={() => channelsData.setShowModelUpdateModeModal(false)}
+        onConfirm={(mode) => {
+          channelsData.setShowModelUpdateModeModal(false);
+          channelsData.setUpdateMode(mode);
+          channelsData.setShowBatchModelUpdate(true);
+        }}
+        t={channelsData.t}
+      />
+      <BatchModelUpdateModal
+        visible={channelsData.showBatchModelUpdate}
+        onCancel={() => channelsData.setShowBatchModelUpdate(false)}
+        selectedChannels={channelsData.selectedChannels}
+        onRefresh={channelsData.refresh}
+        updateMode={channelsData.updateMode}
+        t={channelsData.t}
+      />
       <ModelTestModal {...channelsData} />
       <MultiKeyManageModal
         visible={channelsData.showMultiKeyManageModal}

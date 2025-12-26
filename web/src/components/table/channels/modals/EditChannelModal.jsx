@@ -265,7 +265,6 @@ const EditChannelModal = (props) => {
   } = useSecureVerification({
     onSuccess: (result) => {
       // 验证成功后显示密钥
-      console.log('Verification success, result:', result);
       if (result && result.success && result.data?.key) {
         showSuccess(t('密钥获取成功'));
         setKeyDisplayState({
@@ -398,7 +397,6 @@ const EditChannelModal = (props) => {
       try {
         settings = JSON.parse(inputs.settings);
       } catch (error) {
-        console.error('解析设置失败:', error);
       }
     }
     settings[key] = value;
@@ -550,7 +548,7 @@ const EditChannelModal = (props) => {
             data.expiration_time = null;
           }
         } catch (error) {
-          console.error('解析渠道设置失败:', error);
+
           data.force_format = false;
           data.thinking_to_content = false;
           data.proxy = '';
@@ -587,7 +585,7 @@ const EditChannelModal = (props) => {
           data.allow_safety_identifier =
             parsedSettings.allow_safety_identifier || false;
         } catch (error) {
-          console.error('解析其他设置失败:', error);
+
           data.azure_responses_version = '';
           data.region = '';
           data.vertex_key_type = 'json';
@@ -690,7 +688,7 @@ const EditChannelModal = (props) => {
             err = true;
           }
         } catch (error) {
-          console.error('Error fetching models:', error);
+
           err = true;
         }
       }
@@ -781,7 +779,7 @@ const EditChannelModal = (props) => {
         });
       }
     } catch (error) {
-      console.error('Failed to view channel key:', error);
+
       showError(error.message || t('获取密钥失败'));
     }
   };
@@ -1199,7 +1197,7 @@ const EditChannelModal = (props) => {
       try {
         settings = JSON.parse(localInputs.settings);
       } catch (error) {
-        console.error('解析settings失败:', error);
+
       }
     }
 
