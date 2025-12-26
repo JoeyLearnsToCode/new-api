@@ -149,15 +149,23 @@ func AddToken(c *gin.Context) {
 		})
 		return
 	}
-	key, err := common.GenerateKey()
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "生成令牌失败",
-		})
-		common.SysLog("failed to generate token key: " + err.Error())
-		return
+	
+	// 如果前端没有传递token或token为空，则自动生成
+	var key string
+	if token.Key == "" {
+		key, err = common.GenerateKey()
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "生成令牌失败",
+			})
+			common.SysLog("failed to generate token key: " + err.Error())
+			return
+		}
+	} else {
+		key = token.Key
 	}
+	
 	cleanToken := model.Token{
 		UserId:             c.GetInt("id"),
 		Name:               token.Name,
@@ -250,6 +258,10 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
+		// 只有当前端传递了非空的key时才更新
+		if token.Key != "" {
+			cleanToken.Key = token.Key
+		}
 	}
 	err = cleanToken.Update()
 	if err != nil {

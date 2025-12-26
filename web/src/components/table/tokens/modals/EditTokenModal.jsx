@@ -67,6 +67,7 @@ const EditTokenModal = (props) => {
   const getInitValues = () => ({
     name: '',
     remain_quota: 0,
+    key: '',
     expired_time: -1,
     unlimited_quota: true,
     model_limits_enabled: false,
@@ -205,6 +206,7 @@ const EditTokenModal = (props) => {
     return result;
   };
 
+
   const submit = async (values) => {
     setLoading(true);
     if (isEdit) {
@@ -221,6 +223,15 @@ const EditTokenModal = (props) => {
       }
       localInputs.model_limits = localInputs.model_limits.join(',');
       localInputs.model_limits_enabled = localInputs.model_limits.length > 0;
+      
+      // 更新时如果令牌为空，则不传递key字段，保持原有令牌不变
+      if (!localInputs.key || localInputs.key.trim() === '') {
+        delete localInputs.key;
+      } else {
+        // 去掉sk-前缀
+        localInputs.key = localInputs.key.replace(/^sk-/, '');
+      }
+      
       let res = await API.put(`/api/token/`, {
         ...localInputs,
         id: parseInt(props.editingToken.id),
@@ -245,6 +256,13 @@ const EditTokenModal = (props) => {
         } else {
           localInputs.name = baseName;
         }
+        
+        // 新增时如果令牌为空，后端会自动生成
+        // 如果有令牌输入，去掉sk-前缀
+        if (localInputs.key && localInputs.key.trim() !== '') {
+          localInputs.key = localInputs.key.replace(/^sk-/, '');
+        }
+        
         localInputs.remain_quota = parseInt(localInputs.remain_quota);
 
         if (localInputs.expired_time !== -1) {
@@ -355,6 +373,23 @@ const EditTokenModal = (props) => {
                       label={t('名称')}
                       placeholder={t('请输入名称')}
                       rules={[{ required: true, message: t('请输入名称') }]}
+                      showClear
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <Form.Input
+                      field='key'
+                      label={t('令牌')}
+                      placeholder={
+                        isEdit 
+                          ? t('留空则保持不变') 
+                          : t('留空则自动生成')
+                      }
+                      extraText={
+                        isEdit 
+                          ? t('更新时留空或不变则保留原令牌') 
+                          : t('新增时留空则自动生成随机令牌')
+                      }
                       showClear
                     />
                   </Col>
