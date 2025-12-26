@@ -152,6 +152,7 @@ const EditChannelModal = (props) => {
     pass_through_body_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
+    expiration_time: null,
     settings: '',
     // 仅 Vertex: 密钥格式（存入 settings.vertex_key_type）
     vertex_key_type: 'json',
@@ -355,6 +356,7 @@ const EditChannelModal = (props) => {
     proxy: '',
     pass_through_body_enabled: false,
     system_prompt: '',
+    expiration_time: null,
   });
   const showApiConfigCard = true; // 控制是否显示 API 配置卡片
   const getInitValues = () => ({ ...originInputs });
@@ -536,6 +538,17 @@ const EditChannelModal = (props) => {
           data.system_prompt = parsedSettings.system_prompt || '';
           data.system_prompt_override =
             parsedSettings.system_prompt_override || false;
+          // 处理过期时间
+          if (parsedSettings.expiration_time && parsedSettings.expiration_time !== '') {
+            try {
+              // 解析 RFC3339 格式的时间字符串
+              data.expiration_time = new Date(parsedSettings.expiration_time);
+            } catch {
+              data.expiration_time = null;
+            }
+          } else {
+            data.expiration_time = null;
+          }
         } catch (error) {
           console.error('解析渠道设置失败:', error);
           data.force_format = false;
@@ -544,6 +557,7 @@ const EditChannelModal = (props) => {
           data.pass_through_body_enabled = false;
           data.system_prompt = '';
           data.system_prompt_override = false;
+          data.expiration_time = null;
         }
       } else {
         data.force_format = false;
@@ -552,6 +566,7 @@ const EditChannelModal = (props) => {
         data.pass_through_body_enabled = false;
         data.system_prompt = '';
         data.system_prompt_override = false;
+        data.expiration_time = null;
       }
 
       if (data.settings) {
@@ -620,6 +635,7 @@ const EditChannelModal = (props) => {
         pass_through_body_enabled: data.pass_through_body_enabled,
         system_prompt: data.system_prompt,
         system_prompt_override: data.system_prompt_override || false,
+        expiration_time: data.expiration_time,
       });
       initialModelsRef.current = (data.models || [])
         .map((model) => (model || '').trim())
@@ -878,6 +894,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: false,
       system_prompt: '',
       system_prompt_override: false,
+      expiration_time: null,
     });
     // 重置密钥模式状态
     setKeyMode('append');
@@ -1165,6 +1182,15 @@ const EditChannelModal = (props) => {
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
     };
+
+    // 处理过期时间设置
+    if (localInputs.expiration_time && localInputs.expiration_time instanceof Date) {
+      // 转换为 RFC3339 格式字符串，保留时区信息
+      channelExtraSettings.expiration_time = localInputs.expiration_time.toISOString();
+    } else {
+      channelExtraSettings.expiration_time = '';
+    }
+
     localInputs.setting = JSON.stringify(channelExtraSettings);
 
     // 处理 settings 字段（包括企业账户设置和字段透传控制）
@@ -1216,6 +1242,7 @@ const EditChannelModal = (props) => {
     delete localInputs.system_prompt;
     delete localInputs.system_prompt_override;
     delete localInputs.is_enterprise_account;
+    delete localInputs.expiration_time;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
     // 顶层的 aws_key_type 不应发送给后端
@@ -3006,6 +3033,19 @@ const EditChannelModal = (props) => {
                       )}
                     />
                   </Card>
+                  <Form.DatePicker
+                    field='expiration_time'
+                    label={t('渠道过期时间')}
+                    placeholder={t('请选择过期时间')}
+                    type='dateTime'
+                    format='yyyy-MM-dd HH:mm:ss'
+                    position='topLeft'
+                    onChange={(value) => {
+                      handleChannelSettingsChange('expiration_time', value);
+                    }}
+                    showClear
+                    extraText={t('设置后渠道将在指定时间自动禁用，留空表示永不过期')}
+                  />
                 </div>
               </div>
             </Spin>

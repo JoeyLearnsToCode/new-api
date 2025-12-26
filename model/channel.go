@@ -774,7 +774,8 @@ func DeleteChannelByStatus(status int64) (int64, error) {
 }
 
 func DeleteDisabledChannel() (int64, error) {
-	result := DB.Where("status = ? or status = ?", common.ChannelStatusAutoDisabled, common.ChannelStatusManuallyDisabled).Delete(&Channel{})
+	disableStatus := []int64{common.ChannelStatusAutoDisabled, common.ChannelStatusManuallyDisabled, common.ChannelStatusExpiredDisabled}
+	result := DB.Where("status in ?", disableStatus).Delete(&Channel{})
 	return result.RowsAffected, result.Error
 }
 
