@@ -356,6 +356,7 @@ const EditChannelModal = (props) => {
     pass_through_body_enabled: false,
     system_prompt: '',
     expiration_time: null,
+    stream_support: 'BOTH',
   });
   const showApiConfigCard = true; // 控制是否显示 API 配置卡片
   const getInitValues = () => ({ ...originInputs });
@@ -547,6 +548,7 @@ const EditChannelModal = (props) => {
           } else {
             data.expiration_time = null;
           }
+          data.stream_support = parsedSettings.stream_support || 'BOTH';
         } catch (error) {
 
           data.force_format = false;
@@ -556,6 +558,7 @@ const EditChannelModal = (props) => {
           data.system_prompt = '';
           data.system_prompt_override = false;
           data.expiration_time = null;
+          data.stream_support = 'BOTH';
         }
       } else {
         data.force_format = false;
@@ -634,6 +637,7 @@ const EditChannelModal = (props) => {
         system_prompt: data.system_prompt,
         system_prompt_override: data.system_prompt_override || false,
         expiration_time: data.expiration_time,
+        stream_support: data.stream_support || 'BOTH',
       });
       initialModelsRef.current = (data.models || [])
         .map((model) => (model || '').trim())
@@ -893,6 +897,7 @@ const EditChannelModal = (props) => {
       system_prompt: '',
       system_prompt_override: false,
       expiration_time: null,
+      stream_support: 'BOTH',
     });
     // 重置密钥模式状态
     setKeyMode('append');
@@ -1179,6 +1184,7 @@ const EditChannelModal = (props) => {
       pass_through_body_enabled: localInputs.pass_through_body_enabled || false,
       system_prompt: localInputs.system_prompt || '',
       system_prompt_override: localInputs.system_prompt_override || false,
+      stream_support: localInputs.stream_support || 'BOTH',
     };
 
     // 处理过期时间设置
@@ -1241,6 +1247,7 @@ const EditChannelModal = (props) => {
     delete localInputs.system_prompt_override;
     delete localInputs.is_enterprise_account;
     delete localInputs.expiration_time;
+    delete localInputs.stream_support;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
     // 顶层的 aws_key_type 不应发送给后端
@@ -2943,6 +2950,20 @@ const EditChannelModal = (props) => {
                         </Text>
                       </div>
                     </div>
+
+                    <Form.Select
+                    field='stream_support'
+                    label={t('流式支持')}
+                    placeholder={t('请选择流式支持类型')}
+                    optionList={[
+                      { label: t('支持流式和非流式（默认）'), value: 'BOTH' },
+                      { label: t('仅支持流式'), value: 'STREAM_ONLY' },
+                      { label: t('仅支持非流式'), value: 'NON_STREAM_ONLY' },
+                    ]}
+                    style={{ width: '100%' }}
+                    onChange={(value) => handleChannelSettingsChange('stream_support', value)}
+                    extraText={t('控制渠道对流式和非流式请求的支持')}
+                  />
 
                     {inputs.type === 1 && (
                       <Form.Switch

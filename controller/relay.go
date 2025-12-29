@@ -176,6 +176,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		TokenGroup: relayInfo.TokenGroup,
 		ModelName:  relayInfo.OriginModelName,
 		Retry:      common.GetPointer(0),
+		IsStream:   &relayInfo.IsStream,
 	}
 
 	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
@@ -270,22 +271,31 @@ func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {
 
 func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service.RetryParam) (*model.Channel, *types.NewAPIError) {
 	if info.ChannelMeta == nil {
-		autoBan := c.GetBool("auto_ban")
-		autoBanInt := 1
-		if !autoBan {
-			autoBanInt = 0
+		if _, exists := c.Get(constant.ContextKeyChannelId.String()); exists {
+			var channelSetting dto.ChannelSettings
+			if channelSettingI, exists2 := c.Get(constant.ContextKeyChannelSetting.String()); exists2 {
+				channelSetting, _ = channelSettingI.(dto.ChannelSettings)
+			}
+			channel := &model.Channel{
+				Id:   c.GetInt(constant.ContextKeyChannelId.String()),
+				Type: c.GetInt(constant.ContextKeyChannelType.String()),
+				Name: c.GetString(constant.ContextKeyChannelName.String()),
+			}
+			channel.SetSetting(channelSetting)
+
+			if retryParam.IsStream == nil || model.IsChannelStreamOptOk(retryParam.IsStream, channel) {
+				autoBan := c.GetBool("auto_ban")
+				autoBanInt := 1
+				if !autoBan {
+					autoBanInt = 0
+				}
+				channel.AutoBan = &autoBanInt
+				return channel, nil
+			}
 		}
-		return &model.Channel{
-			Id:      c.GetInt("channel_id"),
-			Type:    c.GetInt("channel_type"),
-			Name:    c.GetString("channel_name"),
-			AutoBan: &autoBanInt,
-		}, nil
 	}
 	channel, selectGroup, err := service.CacheGetRandomSatisfiedChannel(retryParam)
-
 	info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
-
 	if err != nil {
 		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
