@@ -1821,16 +1821,6 @@ const EditChannelModal = (props) => {
                                     )}
                                   </Text>
                                 )}
-                              {isEdit && (
-                                <Button
-                                  size='small'
-                                  type='primary'
-                                  theme='outline'
-                                  onClick={handleShow2FAModal}
-                                >
-                                  {t('查看密钥')}
-                                </Button>
-                              )}
                               {batchExtra}
                             </div>
                           }
@@ -1905,13 +1895,7 @@ const EditChannelModal = (props) => {
                             {useManualInput && !batch ? (
                               <Form.TextArea
                                 field='key'
-                                label={
-                                  isEdit
-                                    ? t(
-                                        '密钥（编辑模式下，保存的密钥不会显示）',
-                                      )
-                                    : t('密钥')
-                                }
+                                label={t('密钥')}
                                 placeholder={t(
                                   '请输入 JSON 格式的密钥内容，例如：\n{\n  "type": "service_account",\n  "project_id": "your-project-id",\n  "private_key_id": "...",\n  "private_key": "...",\n  "client_email": "...",\n  "client_id": "...",\n  "auth_uri": "...",\n  "token_uri": "...",\n  "auth_provider_x509_cert_url": "...",\n  "client_x509_cert_url": "..."\n}',
                                 )}
@@ -1943,16 +1927,6 @@ const EditChannelModal = (props) => {
                                           )}
                                         </Text>
                                       )}
-                                    {isEdit && (
-                                      <Button
-                                        size='small'
-                                        type='primary'
-                                        theme='outline'
-                                        onClick={handleShow2FAModal}
-                                      >
-                                        {t('查看密钥')}
-                                      </Button>
-                                    )}
                                     {batchExtra}
                                   </div>
                                 }
@@ -1990,11 +1964,7 @@ const EditChannelModal = (props) => {
                         ) : (
                           <Form.Input
                             field='key'
-                            label={
-                              isEdit
-                                ? t('密钥（编辑模式下，保存的密钥不会显示）')
-                                : t('密钥')
-                            }
+                            label={t('密钥')}
                             placeholder={
                               inputs.type === 33
                                 ? inputs.aws_key_type === 'api_key'
@@ -2022,16 +1992,6 @@ const EditChannelModal = (props) => {
                                       )}
                                     </Text>
                                   )}
-                                {isEdit && (
-                                  <Button
-                                    size='small'
-                                    type='primary'
-                                    theme='outline'
-                                    onClick={handleShow2FAModal}
-                                  >
-                                    {t('查看密钥')}
-                                  </Button>
-                                )}
                                 {batchExtra}
                               </div>
                             }
@@ -3135,6 +3095,13 @@ const EditChannelModal = (props) => {
         models={fetchedModels}
         selected={inputs.models}
         redirectModels={redirectModelList}
+        modelMapping={(() => {
+          try {
+            return JSON.parse(inputs.model_mapping || '{}');
+          } catch {
+            return {};
+          }
+        })()}
         onConfirm={(selectedModels) => {
           handleInputChange('models', selectedModels);
           showSuccess(t('模型列表已更新'));
