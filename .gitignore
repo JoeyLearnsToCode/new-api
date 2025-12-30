@@ -12,6 +12,7 @@ web/dist
 one-api
 new-api
 /__debug_bin*
+one-api-freebsd
 .DS_Store
 tiktoken_cache
 .eslintcache

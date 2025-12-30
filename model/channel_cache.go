@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -11,7 +12,10 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+
+	"github.com/dlclark/regexp2"
 )
 
 var group2model2channels map[string]map[string][]int // enabled channel
@@ -23,7 +27,7 @@ func IsChannelStreamOptOk(isStream *bool, channel *Channel) bool {
 	if isStream != nil {
 		streamSupport := channel.GetStreamSupport()
 		isStreamRequest := *isStream
-		
+
 		switch streamSupport {
 		case constant.StreamSupportBoth:
 			// 支持流式和非流式，都匹配
@@ -118,27 +122,210 @@ func SyncChannelCache(frequency int) {
 }
 
 func GetRandomSatisfiedChannel(group string, model string, retry int, isStream *bool) (*Channel, error) {
+	channel, err := getRandomSatisfiedChannel(group, model, retry, isStream)
+	if err != nil {
+		return nil, err
+	}
+	return channel, nil
+}
+
+// resolveSingleGlobalModelMapping 将单个模型映射到目标模型列表
+func resolveSingleGlobalModelMapping(model string, globalModelMapping *model_setting.GlobalModelMapping, regexCache map[string]*regexp2.Regexp) []string {
+	// 优先检查单向映射
+	if len(globalModelMapping.OneWayModelMappings) > 0 && len(globalModelMapping.OneWayModelMappings[model]) > 0 {
+		return globalModelMapping.OneWayModelMappings[model]
+	}
+
+	// 检查等效映射
+	if len(globalModelMapping.Equivalents) > 0 {
+		for _, equivalent := range globalModelMapping.Equivalents {
+			if common.StringsContains(equivalent, model) {
+				return equivalent
+			}
+
+			for _, eq := range equivalent {
+				// 不处理都是、都不是正则的情况
+				isRe1 := strings.HasPrefix(eq, "/")
+				isRe2 := strings.HasPrefix(model, "/")
+				if isRe1 && isRe2 || !isRe1 && !isRe2 {
+					continue
+				}
+				var pattern, str string
+				if isRe1 {
+					pattern = eq[1:]
+					str = model
+				} else {
+					pattern = model[1:]
+					str = eq
+				}
+
+				// 使用缓存避免重复编译正则表达式
+				re, ok := regexCache[pattern]
+				if !ok {
+					re = regexp2.MustCompile(pattern, regexp2.None)
+					regexCache[pattern] = re
+				}
+
+				if matched, err := re.MatchString(str); err != nil {
+					panic(err)
+				} else if matched {
+					return equivalent
+				}
+			}
+		}
+	}
+
+	// 没有找到映射，返回原模型
+	return []string{model}
+}
+
+// resolveGlobalModelMappings 递归解析模型映射，直到收敛或达到最大迭代次数
+func resolveGlobalModelMappings(model string, globalModelMapping *model_setting.GlobalModelMapping) ([]string, bool) {
+	// 使用集合跟踪所有已处理的模型，避免重复和循环
+	processedModels := make(map[string]bool)
+	currentModels := []string{model}
+	usingGlobalModelMapping := false
+
+	// 创建正则表达式缓存，避免重复编译
+	regexCache := make(map[string]*regexp2.Regexp)
+
+	const maxIterations = 5
+	for i := 0; i < maxIterations; i++ {
+		var nextModels []string
+		hasNewMappings := false
+
+		// 对当前批次的每个模型进行映射
+		for _, currentModel := range currentModels {
+			if processedModels[currentModel] {
+				continue // 跳过已处理的模型
+			}
+
+			mappedModels := resolveSingleGlobalModelMapping(currentModel, globalModelMapping, regexCache)
+			processedModels[currentModel] = true
+
+			// 检查是否有新的映射结果
+			if len(mappedModels) == 1 && mappedModels[0] == currentModel {
+				// 没有映射，保留原模型
+				nextModels = append(nextModels, currentModel)
+			} else {
+				// 有映射，标记使用了全局映射
+				usingGlobalModelMapping = true
+				hasNewMappings = true
+
+				// 添加新的映射结果（排除已处理的）
+				for _, mappedModel := range mappedModels {
+					if !processedModels[mappedModel] {
+						nextModels = append(nextModels, mappedModel)
+					}
+				}
+			}
+		}
+
+		// 如果没有新的映射产生，说明已经收敛
+		if !hasNewMappings {
+			break
+		}
+
+		currentModels = nextModels
+	}
+
+	// 收集所有已处理的模型作为最终结果
+	var finalModels []string
+	for processedModel := range processedModels {
+		finalModels = append(finalModels, processedModel)
+	}
+
+	// 如果没有使用映射，返回原始模型
+	if !usingGlobalModelMapping {
+		return []string{model}, false
+	}
+
+	return finalModels, true
+}
+
+func getRandomSatisfiedChannel(group string, model string, retry int, isStream *bool) (*Channel, error) {
+	// 应用全局模型映射
+	globalModelMapping := &model_setting.GetGlobalSettings().ModelMapping
+	targetModels, usingGlobalModelMapping := resolveGlobalModelMappings(model, globalModelMapping)
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
-		return GetChannel(group, model, retry, isStream)
+		if usingGlobalModelMapping {
+			channel, ability, err := GetChannel(group, targetModels, retry, isStream)
+			if err != nil {
+				return channel, err
+			}
+
+			if common.StringsContains(channel.GetModels(), model) && common.StringsContains(targetModels, model) {
+				return channel, nil
+			}
+
+			if model != ability.Model {
+				modelMap := channel.MustGetModelMappingMap()
+				modelMap[model] = ability.Model
+				modelMappingBytes, _ := json.Marshal(modelMap)
+				channel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
+			}
+			return channel, nil
+		}
+		channel, _, err := GetChannel(group, targetModels, retry, isStream)
+		return channel, err
 	}
 
 	channelSyncLock.RLock()
 	defer channelSyncLock.RUnlock()
+	var channels []int
+	if usingGlobalModelMapping {
+		for _, targetModel := range targetModels {
+			channels = append(channels, group2model2channels[group][targetModel]...)
+		}
+		// 去重
+		uniqueChannels := make(map[int]*Channel)
+		for _, channelId := range channels {
+			if uniqueChannels[channelId] == nil {
+				uniqueChannels[channelId] = channelsIDM[channelId]
+			}
+		}
+		channels = make([]int, 0, len(uniqueChannels))
+		for channelId := range uniqueChannels {
+			channels = append(channels, channelId)
+		}
+	} else {
+		channels = group2model2channels[group][model]
+	}
 
-	// First, try to find channels with the exact model name.
-	channels := group2model2channels[group][model]
-
-	// If no channels found, try to find channels with the normalized model name.
 	if len(channels) == 0 {
 		normalizedModel := ratio_setting.FormatMatchingModelName(model)
 		channels = group2model2channels[group][normalizedModel]
 	}
-
 	if len(channels) == 0 {
 		return nil, nil
 	}
 
+	selectedChannel, err := selectChannelByPriorityAndWeight(channels, retry, isStream)
+	if err != nil {
+		return nil, err
+	}
+
+	channelModels := selectedChannel.GetModels()
+	if !usingGlobalModelMapping || (common.StringsContains(channelModels, model) && common.StringsContains(targetModels, model)) {
+		return selectedChannel, nil
+	}
+
+	acceptableModels := common.StringsIntersection(channelModels, targetModels)
+	if len(acceptableModels) == 0 {
+		return nil, errors.New("no acceptable model left after global model mapping")
+	}
+	// 不修改原channel，复制一份
+	copyChannel := *selectedChannel
+	modelMap := copyChannel.MustGetModelMappingMap()
+	modelMap[model] = acceptableModels[rand.Intn(len(acceptableModels))]
+	modelMappingBytes, _ := json.Marshal(modelMap)
+	copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
+	return &copyChannel, nil
+}
+
+// selectChannelByPriorityAndWeight 根据优先级和权重随机选择channel
+func selectChannelByPriorityAndWeight(channels []int, retry int, isStream *bool) (*Channel, error) {
 	// Apply extra filter to channels
 	var filteredChannels []int
 	for _, channelId := range channels {
@@ -160,6 +347,7 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, isStream *
 		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", filteredChannels[0])
 	}
 
+	// 获取所有唯一的优先级
 	uniquePriorities := make(map[int]bool)
 	for _, channelId := range filteredChannels {
 		if channel, ok := channelsIDM[channelId]; ok {
@@ -168,24 +356,25 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, isStream *
 			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
 		}
 	}
+
+	// 将优先级从高到低排序
 	var sortedUniquePriorities []int
 	for priority := range uniquePriorities {
 		sortedUniquePriorities = append(sortedUniquePriorities, priority)
 	}
 	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
 
+	// 根据重试次数确定目标优先级
 	if retry >= len(uniquePriorities) {
 		retry = len(uniquePriorities) - 1
 	}
 	targetPriority := int64(sortedUniquePriorities[retry])
 
 	// get the priority for the given retry number
-	var sumWeight = 0
 	var targetChannels []*Channel
 	for _, channelId := range filteredChannels {
 		if channel, ok := channelsIDM[channelId]; ok {
 			if channel.GetPriority() == targetPriority {
-				sumWeight += channel.GetWeight()
 				targetChannels = append(targetChannels, channel)
 			}
 		} else {
@@ -193,38 +382,24 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, isStream *
 		}
 	}
 
-	if len(targetChannels) == 0 {
-		return nil, errors.New(fmt.Sprintf("no channel found, group: %s, model: %s, priority: %d", group, model, targetPriority))
-	}
-
-	// smoothing factor and adjustment
-	smoothingFactor := 1
-	smoothingAdjustment := 0
-
-	if sumWeight == 0 {
-		// when all channels have weight 0, set sumWeight to the number of channels and set smoothing adjustment to 100
-		// each channel's effective weight = 100
-		sumWeight = len(targetChannels) * 100
-		smoothingAdjustment = 100
-	} else if sumWeight/len(targetChannels) < 10 {
-		// when the average weight is less than 10, set smoothing factor to 100
-		smoothingFactor = 100
-	}
-
+	// 平滑系数
+	smoothingFactor := 10
 	// Calculate the total weight of all channels up to endIdx
-	totalWeight := sumWeight * smoothingFactor
-
+	totalWeight := 0
+	for _, channel := range targetChannels {
+		totalWeight += channel.GetWeight() + smoothingFactor
+	}
 	// Generate a random value in the range [0, totalWeight)
 	randomWeight := rand.Intn(totalWeight)
 
 	// Find a channel based on its weight
 	for _, channel := range targetChannels {
-		randomWeight -= channel.GetWeight()*smoothingFactor + smoothingAdjustment
+		randomWeight -= channel.GetWeight() + smoothingFactor
 		if randomWeight < 0 {
 			return channel, nil
 		}
 	}
-	// return null if no channel is not found
+
 	return nil, errors.New("channel not found")
 }
 

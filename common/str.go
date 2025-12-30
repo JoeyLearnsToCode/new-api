@@ -92,6 +92,21 @@ func StringToByteSlice(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&tmp2))
 }
 
+// StringsIntersection returns the intersection of two string slices
+func StringsIntersection(a []string, b []string) []string {
+	m := make(map[string]struct{})
+	for _, v := range a {
+		m[v] = struct{}{}
+	}
+	var c []string
+	for _, v := range b {
+		if _, ok := m[v]; ok {
+			c = append(c, v)
+		}
+	}
+	return c
+}
+
 func EncodeBase64(str string) string {
 	return base64.StdEncoding.EncodeToString([]byte(str))
 }

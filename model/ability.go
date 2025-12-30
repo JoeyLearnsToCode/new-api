@@ -60,12 +60,13 @@ func GetAllEnableAbilities() []Ability {
 	return abilities
 }
 
-func getPriority(group string, model string, retry int) (int, error) {
+func getPriority(group, modelQuery string, modelArgs []any, retry int) (int, error) {
 
 	var priorities []int
 	err := DB.Model(&Ability{}).
 		Select("DISTINCT(priority)").
-		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
+		Where(commonGroupCol+" = ? and enabled = ?", group, true).
+		Where(modelQuery, modelArgs...).
 		Order("priority DESC").              // 按优先级降序排序
 		Pluck("priority", &priorities).Error // Pluck用于将查询的结果直接扫描到一个切片中
 
@@ -90,7 +91,7 @@ func getPriority(group string, model string, retry int) (int, error) {
 	return priorityToUse, nil
 }
 
-func applyRetryFiltering(abilities []Ability, group string, model string, retry int) ([]Ability, error) {
+func applyRetryFiltering(abilities []Ability, retry int) ([]Ability, error) {
 	if len(abilities) == 0 {
 		return abilities, nil
 	}
@@ -140,10 +141,6 @@ func applyRetryFiltering(abilities []Ability, group string, model string, retry 
 		}
 	}
 	return filtered, nil
-}
-
-func getChannelQuery(group string, model string) *gorm.DB {
-	return DB.Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
 }
 
 func filterAbilities(isStream *bool, abilities []Ability) (filteredAbilities []Ability, err error) {
@@ -202,30 +199,75 @@ func filterAbilities(isStream *bool, abilities []Ability) (filteredAbilities []A
 	return
 }
 
-func GetChannel(group string, model string, retry int, isStream *bool) (*Channel, error) {
+func models2Condition(models []string) (query string, args []any) {
+	var normalModels []string
+	var regexModels []string
+
+	// 分离普通字符串和正则表达式
+	for _, model := range models {
+		if strings.HasPrefix(model, "/") {
+			// 去掉开头的 '/' 符号
+			regexModels = append(regexModels, model[1:])
+		} else {
+			normalModels = append(normalModels, model)
+		}
+	}
+
+	var conditions []string
+
+	// 处理普通字符串组
+	if len(normalModels) > 0 {
+		conditions = append(conditions, "model IN ?")
+		args = append(args, normalModels)
+	}
+
+	// 处理正则表达式组
+	for _, regex := range regexModels {
+		conditions = append(conditions, "model REGEXP ?")
+		args = append(args, regex)
+	}
+
+	// 用 OR 连接所有条件
+	query = strings.Join(conditions, " OR ")
+
+	return query, args
+}
+
+func getChannelQuery(group string, models []string) *gorm.DB {
+	modelQuery, modelArgs := models2Condition(models)
+	channelQuery := DB.Where(commonGroupCol+" = ? and enabled = ?", group, true).
+		Where(modelQuery, modelArgs...)
+	return channelQuery
+}
+
+func GetChannel(group string, models []string, retry int, isStream *bool) (*Channel, *Ability, error) {
 	var abilities []Ability
 
 	var err error = nil
-	channelQuery := getChannelQuery(group, model)
+	channelQuery := getChannelQuery(group, models)
 	if common.UsingSQLite || common.UsingPostgreSQL {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	} else {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if abilities, err = filterAbilities(isStream, abilities); err != nil {
-		return nil, fmt.Errorf("filterAbilities failed: %w", err)
+		return nil, nil, fmt.Errorf("filterAbilities failed: %w", err)
 	}
 
-	abilities, err = applyRetryFiltering(abilities, group, model, retry)
+	abilities, err = applyRetryFiltering(abilities, retry)
 	if err != nil {
-		return nil, fmt.Errorf("applyRetryFiltering failed: %w", err)
+		return nil, nil, fmt.Errorf("applyRetryFiltering failed: %w", err)
 	}
 
-	channel := Channel{}
+	var (
+		channel         Channel
+		selectedAbility *Ability
+	)
+
 	if len(abilities) > 0 {
 		// Randomly choose one
 		weightSum := uint(0)
@@ -236,17 +278,18 @@ func GetChannel(group string, model string, retry int, isStream *bool) (*Channel
 		weight := common.GetRandomInt(int(weightSum))
 		for _, ability_ := range abilities {
 			weight -= int(ability_.Weight) + 10
-			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
+			// log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
 			if weight <= 0 {
 				channel.Id = ability_.ChannelId
+				selectedAbility = &ability_
 				break
 			}
 		}
 	} else {
-		return nil, nil
+		return nil, nil, errors.New("channel not found")
 	}
 	err = DB.First(&channel, "id = ?", channel.Id).Error
-	return &channel, err
+	return &channel, selectedAbility, err
 }
 
 func (channel *Channel) AddAbilities(tx *gorm.DB) error {

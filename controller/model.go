@@ -3,11 +3,13 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/relay/channel/ai360"
@@ -16,9 +18,11 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/moonshot"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -197,6 +201,51 @@ func ListModels(c *gin.Context, modelType int) {
 					Created:                1626777600,
 					OwnedBy:                "custom",
 					SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+				})
+			}
+		}
+	}
+
+	// 把全局模型重定向中对用户可用的模型添加到 userOpenAiModels 中
+	globalModelMapping := model_setting.GetGlobalSettings().ModelMapping
+	if len(globalModelMapping.OneWayModelMappings) > 0 {
+		existingUserModels := make(map[string]bool)
+		for _, model := range userOpenAiModels {
+			existingUserModels[model.Id] = true
+		}
+		for model, targetModels := range globalModelMapping.OneWayModelMappings {
+			if _, exists := existingUserModels[model]; exists {
+				continue
+			}
+			// 如果全局模型重定向的目标模型中有至少一个存在于用户可用模型中，则该全局模型重定向的模型对用户可用，添加到 userOpenAiModels 中
+			shouldAddModel := false
+			for _, targetModel := range targetModels {
+				if strings.HasPrefix(targetModel, "/") {
+					re, err := regexp2.Compile(targetModel[1:], regexp2.None)
+					if err != nil {
+						logger.LogInfo(c, fmt.Sprintf("invalid regex: %s, err: %+v", targetModel, err))
+					} else {
+						for _, userModel := range userOpenAiModels {
+							if ok, err := re.MatchString(userModel.Id); err == nil && ok {
+								shouldAddModel = true
+								break
+							}
+						}
+					}
+				}
+				if _, exists := existingUserModels[targetModel]; exists {
+					shouldAddModel = true
+				}
+				if shouldAddModel {
+					break
+				}
+			}
+			if shouldAddModel {
+				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+					Id:      model,
+					Object:  "model",
+					Created: 1626777600,
+					OwnedBy: "custom",
 				})
 			}
 		}

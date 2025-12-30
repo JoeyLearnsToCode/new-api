@@ -149,7 +149,17 @@ func (e *NewAPIError) SetMessage(message string) {
 }
 
 func (e *NewAPIError) ToOpenAIError() OpenAIError {
-	var result OpenAIError
+	result := OpenAIError{
+		Message: e.Error(),
+		Type:    string(e.errorType),
+		Param:   "",
+		Code:    e.errorCode,
+	}
+
+	if common.IsNil(e.RelayError) {
+		return result
+	}
+
 	switch e.errorType {
 	case ErrorTypeOpenAIError:
 		if openAIError, ok := e.RelayError.(OpenAIError); ok {

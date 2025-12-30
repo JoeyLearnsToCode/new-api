@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -333,4 +334,17 @@ func BuildURL(base string, endpoint string) string {
 		return base + endpoint
 	}
 	return u.ResolveReference(ref).String()
+}
+
+func IsNil(i any) bool {
+	if i == nil {
+		return true
+	}
+	v := reflect.ValueOf(i)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }

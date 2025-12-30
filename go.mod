@@ -13,11 +13,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.33.0
 	github.com/aws/smithy-go v1.22.5
 	github.com/bytedance/gopkg v0.1.3
+	github.com/dlclark/regexp2 v1.11.5
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/gzip v0.0.6
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-contrib/static v0.0.1
 	github.com/gin-gonic/gin v1.9.1
+	github.com/glebarez/go-sqlite v1.21.2
 	github.com/glebarez/sqlite v1.9.0
 	github.com/go-audio/aiff v1.1.0
 	github.com/go-audio/wav v1.1.0
@@ -64,12 +66,10 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

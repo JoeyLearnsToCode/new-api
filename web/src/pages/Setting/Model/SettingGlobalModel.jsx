@@ -26,8 +26,17 @@ import {
   showSuccess,
   showWarning,
   verifyJSON,
+  deduplicateArraysInJson
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
+
+const GLOBAL_MODEL_MAPPING_EXAMPLE = {
+  equivalents: [
+    ["model1", "model2", "model3"],
+    ["model4", "model5"]
+  ],
+  model6: ["model7", "model8"]
+};
 
 const thinkingExample = JSON.stringify(
   ['moonshotai/kimi-k2-thinking', 'kimi-k2-thinking'],
@@ -38,6 +47,7 @@ const thinkingExample = JSON.stringify(
 const defaultGlobalSettingInputs = {
   'global.pass_through_request_enabled': false,
   'global.thinking_model_blacklist': '[]',
+  'global.model_mapping': '{}',
   'general_setting.ping_interval_enabled': false,
   'general_setting.ping_interval_seconds': 60,
 };
@@ -175,6 +185,38 @@ export default function SettingGlobalModel(props) {
                       ...inputs,
                       'global.thinking_model_blacklist': value,
                     })
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.TextArea
+                  label={t('全局模型重定向')}
+                  placeholder={
+                    t('此项可选，用于修改请求体中的模型名称，为一个 JSON 字符串。') +
+                    t('单向映射：除 equivalents 外，其他键为请求中模型名称，值为要替换的底层模型名称（数组）。') +
+                    t('等效组：equivalents 为等效组，其中任意模型相互等效，优先级低于单向映射。') +
+                    t('例如') +
+                    '\n' +
+                    JSON.stringify(GLOBAL_MODEL_MAPPING_EXAMPLE, null, 2)
+                  }
+                  field={'global.model_mapping'}
+                  autosize={{ minRows: 6, maxRows: 12 }}
+                  trigger='blur'
+                  stopValidateWithError
+                  rules={[
+                    {
+                      validator: (rule, value) => verifyJSON(value),
+                      message: t('不是合法的 JSON 字符串'),
+                    },
+                  ]}
+                  onChange={(value) => {
+                    const deduplicatedValue = deduplicateArraysInJson(value);
+                    setInputs({ ...inputs, 'global.model_mapping': deduplicatedValue });
+                  }}
+                  extraText={
+                    '在请求模型匹配键时，值（数组）中的模型将会被视为等效模型，从而参与渠道匹配'
                   }
                 />
               </Col>

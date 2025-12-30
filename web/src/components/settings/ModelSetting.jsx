@@ -39,6 +39,7 @@ const ModelSetting = () => {
     'claude.thinking_adapter_budget_tokens_percentage': 0.8,
     'global.pass_through_request_enabled': false,
     'global.thinking_model_blacklist': '[]',
+    'global.model_mapping': '{}',
     'general_setting.ping_interval_enabled': false,
     'general_setting.ping_interval_seconds': 60,
     'gemini.thinking_adapter_enabled': false,
@@ -54,6 +55,7 @@ const ModelSetting = () => {
       let newInputs = {};
       data.forEach((item) => {
         if (
+          item.key === 'global.model_mapping' ||
           item.key === 'gemini.safety_settings' ||
           item.key === 'gemini.version_settings' ||
           item.key === 'claude.model_headers_settings' ||
