@@ -3,15 +3,37 @@ package model_setting
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"github.com/QuantumNous/new-api/setting/config"
 )
 
+type ChatCompletionsToResponsesPolicy struct {
+	Enabled       bool     `json:"enabled"`
+	AllChannels   bool     `json:"all_channels"`
+	ChannelIDs    []int    `json:"channel_ids,omitempty"`
+	ModelPatterns []string `json:"model_patterns,omitempty"`
+}
+
+func (p ChatCompletionsToResponsesPolicy) IsChannelEnabled(channelID int) bool {
+	if !p.Enabled {
+		return false
+	}
+	if p.AllChannels {
+		return true
+	}
+	if channelID == 0 || len(p.ChannelIDs) == 0 {
+		return false
+	}
+	return slices.Contains(p.ChannelIDs, channelID)
+}
+
 type GlobalSettings struct {
-	PassThroughRequestEnabled bool               `json:"pass_through_request_enabled"`
-	ThinkingModelBlacklist    []string           `json:"thinking_model_blacklist"`
-	ModelMapping              GlobalModelMapping `json:"model_mapping"`
+	PassThroughRequestEnabled        bool                             `json:"pass_through_request_enabled"`
+	ModelMapping                     GlobalModelMapping               `json:"model_mapping"`
+	ThinkingModelBlacklist           []string                         `json:"thinking_model_blacklist"`
+	ChatCompletionsToResponsesPolicy ChatCompletionsToResponsesPolicy `json:"chat_completions_to_responses_policy"`
 }
 
 // 默认配置
@@ -22,6 +44,10 @@ var defaultOpenaiSettings = GlobalSettings{
 		"kimi-k2-thinking",
 	},
 	ModelMapping: GlobalModelMapping{},
+	ChatCompletionsToResponsesPolicy: ChatCompletionsToResponsesPolicy{
+		Enabled:     false,
+		AllChannels: true,
+	},
 }
 
 // 全局实例

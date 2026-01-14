@@ -40,6 +40,7 @@ const ModelSetting = () => {
     'global.pass_through_request_enabled': false,
     'global.thinking_model_blacklist': '[]',
     'global.model_mapping': '{}',
+    'global.chat_completions_to_responses_policy': '{}',
     'general_setting.ping_interval_enabled': false,
     'general_setting.ping_interval_seconds': 60,
     'gemini.thinking_adapter_enabled': false,
@@ -61,10 +62,16 @@ const ModelSetting = () => {
           item.key === 'claude.model_headers_settings' ||
           item.key === 'claude.default_max_tokens' ||
           item.key === 'gemini.supported_imagine_models' ||
-          item.key === 'global.thinking_model_blacklist'
+          item.key === 'global.thinking_model_blacklist' ||
+          item.key === 'global.chat_completions_to_responses_policy'
         ) {
           if (item.value !== '') {
-            item.value = JSON.stringify(JSON.parse(item.value), null, 2);
+            try {
+              item.value = JSON.stringify(JSON.parse(item.value), null, 2);
+            } catch (e) {
+              // Keep raw value so user can fix it, and avoid crashing the page.
+              console.error(`Invalid JSON for option ${item.key}:`, e);
+            }
           }
         }
         // Keep boolean config keys ending with enabled/Enabled so UI parses correctly.
