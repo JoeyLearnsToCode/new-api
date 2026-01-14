@@ -784,14 +784,14 @@ const BatchModelUpdateModal = ({
     return (
       <Tag
         key={`${action}_${model}`}
-        color={tagColor}
+        color={isInactive? 'grey' : tagColor}
         closable={false}
         onClick={toggleState}
         style={{
           margin: 2,
           cursor: canEdit ? 'pointer' : 'default',
-          opacity: isInactive ? 0.4 : 1,
-          textDecoration: isInactive ? 'line-through' : 'none',
+          // opacity: isInactive ? 0.4 : 1,
+          // textDecoration: isInactive ? 'line-through' : 'none',
         }}
       >
         {displayText}
