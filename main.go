@@ -116,6 +116,9 @@ func main() {
 		}
 	}()
 
+	// Codex credential auto-refresh check every 10 minutes, refresh when expires within 1 day
+	service.StartCodexCredentialAutoRefreshTask()
+
 	if common.IsMasterNode && constant.UpdateTask {
 		gopool.Go(func() {
 			controller.UpdateMidjourneyTaskBulk()
