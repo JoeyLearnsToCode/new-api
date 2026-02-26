@@ -25,6 +25,8 @@ import { useTranslation } from 'react-i18next';
 import SettingGeminiModel from '../../pages/Setting/Model/SettingGeminiModel';
 import SettingClaudeModel from '../../pages/Setting/Model/SettingClaudeModel';
 import SettingGlobalModel from '../../pages/Setting/Model/SettingGlobalModel';
+import SettingGrokModel from '../../pages/Setting/Model/SettingGrokModel';
+import SettingsChannelAffinity from '../../pages/Setting/Operation/SettingsChannelAffinity';
 
 const ModelSetting = () => {
   const { t } = useTranslation();
@@ -45,6 +47,8 @@ const ModelSetting = () => {
     'general_setting.ping_interval_seconds': 60,
     'gemini.thinking_adapter_enabled': false,
     'gemini.thinking_adapter_budget_tokens_percentage': 0.6,
+    'grok.violation_deduction_enabled': true,
+    'grok.violation_deduction_amount': 0.05,
   });
 
   let [loading, setLoading] = useState(false);
@@ -111,6 +115,10 @@ const ModelSetting = () => {
         <Card style={{ marginTop: '10px' }}>
           <SettingGlobalModel options={inputs} refresh={onRefresh} />
         </Card>
+        {/* Channel affinity */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsChannelAffinity options={inputs} refresh={onRefresh} />
+        </Card>
         {/* Gemini */}
         <Card style={{ marginTop: '10px' }}>
           <SettingGeminiModel options={inputs} refresh={onRefresh} />
@@ -118,6 +126,10 @@ const ModelSetting = () => {
         {/* Claude */}
         <Card style={{ marginTop: '10px' }}>
           <SettingClaudeModel options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* Grok */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingGrokModel options={inputs} refresh={onRefresh} />
         </Card>
       </Spin>
     </>
