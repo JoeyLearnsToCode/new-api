@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"one-api/common"
 	"one-api/constant"
@@ -11,6 +13,7 @@ import (
 	relayconstant "one-api/relay/constant"
 	"one-api/service"
 	"one-api/setting"
+	"one-api/setting/model_setting"
 	"one-api/setting/ratio_setting"
 	"one-api/types"
 	"strconv"
@@ -48,6 +51,23 @@ func Distribute() func(c *gin.Context) {
 			if channel.Status != common.ChannelStatusEnabled {
 				abortWithOpenAiMessage(c, http.StatusForbidden, "该渠道已被禁用")
 				return
+			}
+			
+			// 应用全局模型映射
+			targetModels, usingGlobalModelMapping := model_setting.ResolveGlobalModelMappings(modelRequest.Model)
+			if usingGlobalModelMapping {
+				channelModels := channel.GetModels()
+				// 检查渠道的实际模型与目标模型是否有交集
+				acceptableModels := common.StringsIntersection(channelModels, targetModels)
+				if len(acceptableModels) > 0 {
+					// 不修改原channel，复制一份
+					copyChannel := *channel
+					modelMap := copyChannel.MustGetModelMappingMap()
+					modelMap[modelRequest.Model] = acceptableModels[rand.Intn(len(acceptableModels))]
+					modelMappingBytes, _ := json.Marshal(modelMap)
+					copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
+					channel = &copyChannel
+				}
 			}
 		} else {
 			// Select a channel for the user
