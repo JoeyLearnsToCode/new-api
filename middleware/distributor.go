@@ -50,6 +50,12 @@ func Distribute() func(c *gin.Context) {
 				abortWithOpenAiMessage(c, http.StatusForbidden, "该渠道已被禁用")
 				return
 			}
+
+			// 如果存在 specific_channel_id 且模型名称以 _channel${id} 结尾，则去掉该后缀
+			if channelId != "" {
+				suffix := "_channel" + strconv.Itoa(id)
+				modelRequest.Model = strings.TrimSuffix(modelRequest.Model, suffix)
+			}
 		} else {
 			// Select a channel for the user
 			// check token model mapping
