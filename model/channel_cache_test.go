@@ -9,8 +9,8 @@ import (
 )
 
 // testResolveGlobalModelMappings 可测试版本的 resolveGlobalModelMappings
-func testResolveGlobalModelMappings(model string, globalModelMapping *model_setting.GlobalModelMapping) ([]string, bool) {
-	return resolveGlobalModelMappings(model, globalModelMapping)
+func testResolveGlobalModelMappings(model string, _ *model_setting.GlobalModelMapping) ([]string, bool) {
+	return model_setting.ResolveGlobalModelMappings(model)
 }
 
 func Test_resolveGlobalModelMappings(t *testing.T) {
@@ -373,80 +373,5 @@ func Benchmark_resolveGlobalModelMappings(b *testing.B) {
 		for _, model := range testCases {
 			testResolveGlobalModelMappings(model, globalModelMapping)
 		}
-	}
-}
-
-// Test_resolveSingleGlobalModelMapping 测试单个模型映射函数
-func Test_resolveSingleGlobalModelMapping(t *testing.T) {
-	type args struct {
-		model              string
-		globalModelMapping *model_setting.GlobalModelMapping
-	}
-	tests := []struct {
-		name string
-		args args
-		want []string
-	}{
-		{
-			name: "无映射_返回原模型",
-			args: args{
-				model: "test-model",
-				globalModelMapping: &model_setting.GlobalModelMapping{
-					OneWayModelMappings: nil,
-					Equivalents:         nil,
-				},
-			},
-			want: []string{"test-model"},
-		},
-		{
-			name: "单向映射存在",
-			args: args{
-				model: "gpt-4",
-				globalModelMapping: &model_setting.GlobalModelMapping{
-					OneWayModelMappings: map[string][]string{
-						"gpt-4": {"gpt-4-turbo", "gpt-4-32k"},
-					},
-					Equivalents: nil,
-				},
-			},
-			want: []string{"gpt-4-turbo", "gpt-4-32k"},
-		},
-		{
-			name: "等效映射存在",
-			args: args{
-				model: "gpt-3.5-turbo",
-				globalModelMapping: &model_setting.GlobalModelMapping{
-					OneWayModelMappings: nil,
-					Equivalents: [][]string{
-						{"gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-0613"},
-					},
-				},
-			},
-			want: []string{"gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-0613"},
-		},
-		{
-			name: "单向映射优先于等效映射",
-			args: args{
-				model: "test-model",
-				globalModelMapping: &model_setting.GlobalModelMapping{
-					OneWayModelMappings: map[string][]string{
-						"test-model": {"oneway-result"},
-					},
-					Equivalents: [][]string{
-						{"test-model", "equivalent-result"},
-					},
-				},
-			},
-			want: []string{"oneway-result"},
-		},
-	}
-	
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := resolveSingleGlobalModelMapping(tt.args.model, tt.args.globalModelMapping)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("resolveSingleGlobalModelMapping() = %v, want %v", got, tt.want)
-			}
-		})
 	}
 }

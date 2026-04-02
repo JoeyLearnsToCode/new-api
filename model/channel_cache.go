@@ -14,8 +14,6 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
-
-	"github.com/dlclark/regexp2"
 )
 
 var group2model2channels map[string]map[string][]int // enabled channel
@@ -129,124 +127,9 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, isStream *
 	return channel, nil
 }
 
-// resolveSingleGlobalModelMapping 将单个模型映射到目标模型列表
-func resolveSingleGlobalModelMapping(model string, globalModelMapping *model_setting.GlobalModelMapping, regexCache map[string]*regexp2.Regexp) []string {
-	// 优先检查单向映射
-	if len(globalModelMapping.OneWayModelMappings) > 0 && len(globalModelMapping.OneWayModelMappings[model]) > 0 {
-		return globalModelMapping.OneWayModelMappings[model]
-	}
-
-	// 检查等效映射
-	if len(globalModelMapping.Equivalents) > 0 {
-		for _, equivalent := range globalModelMapping.Equivalents {
-			if common.StringsContains(equivalent, model) {
-				return equivalent
-			}
-
-			for _, eq := range equivalent {
-				// 不处理都是、都不是正则的情况
-				isRe1 := strings.HasPrefix(eq, "/")
-				isRe2 := strings.HasPrefix(model, "/")
-				if isRe1 && isRe2 || !isRe1 && !isRe2 {
-					continue
-				}
-				var pattern, str string
-				if isRe1 {
-					pattern = eq[1:]
-					str = model
-				} else {
-					pattern = model[1:]
-					str = eq
-				}
-
-				// 使用缓存避免重复编译正则表达式
-				re, ok := regexCache[pattern]
-				if !ok {
-					re = regexp2.MustCompile(pattern, regexp2.None)
-					regexCache[pattern] = re
-				}
-
-				if matched, err := re.MatchString(str); err != nil {
-					panic(err)
-				} else if matched {
-					return equivalent
-				}
-			}
-		}
-	}
-
-	// 没有找到映射，返回原模型
-	return []string{model}
-}
-
-// resolveGlobalModelMappings 递归解析模型映射，直到收敛或达到最大迭代次数
-func resolveGlobalModelMappings(model string, globalModelMapping *model_setting.GlobalModelMapping) ([]string, bool) {
-	// 使用集合跟踪所有已处理的模型，避免重复和循环
-	processedModels := make(map[string]bool)
-	currentModels := []string{model}
-	usingGlobalModelMapping := false
-
-	// 创建正则表达式缓存，避免重复编译
-	regexCache := make(map[string]*regexp2.Regexp)
-
-	const maxIterations = 5
-	for i := 0; i < maxIterations; i++ {
-		var nextModels []string
-		hasNewMappings := false
-
-		// 对当前批次的每个模型进行映射
-		for _, currentModel := range currentModels {
-			if processedModels[currentModel] {
-				continue // 跳过已处理的模型
-			}
-
-			mappedModels := resolveSingleGlobalModelMapping(currentModel, globalModelMapping, regexCache)
-			processedModels[currentModel] = true
-
-			// 检查是否有新的映射结果
-			if len(mappedModels) == 1 && mappedModels[0] == currentModel {
-				// 没有映射，保留原模型
-				nextModels = append(nextModels, currentModel)
-			} else {
-				// 有映射，标记使用了全局映射
-				usingGlobalModelMapping = true
-				hasNewMappings = true
-
-				// 添加新的映射结果（排除已处理的）
-				for _, mappedModel := range mappedModels {
-					if !processedModels[mappedModel] {
-						nextModels = append(nextModels, mappedModel)
-					}
-				}
-			}
-		}
-
-		// 如果没有新的映射产生，说明已经收敛
-		if !hasNewMappings {
-			break
-		}
-
-		currentModels = nextModels
-	}
-
-	// 收集所有已处理的模型作为最终结果
-	var finalModels []string
-	for processedModel := range processedModels {
-		finalModels = append(finalModels, processedModel)
-	}
-
-	// 如果没有使用映射，返回原始模型
-	if !usingGlobalModelMapping {
-		return []string{model}, false
-	}
-
-	return finalModels, true
-}
-
 func getRandomSatisfiedChannel(group string, model string, retry int, isStream *bool) (*Channel, error) {
 	// 应用全局模型映射
-	globalModelMapping := &model_setting.GetGlobalSettings().ModelMapping
-	targetModels, usingGlobalModelMapping := resolveGlobalModelMappings(model, globalModelMapping)
+	targetModels, usingGlobalModelMapping := model_setting.ResolveGlobalModelMappings(model)
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
 		if usingGlobalModelMapping {
