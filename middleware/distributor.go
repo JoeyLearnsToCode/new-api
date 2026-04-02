@@ -58,7 +58,7 @@ func Distribute() func(c *gin.Context) {
 			if usingGlobalModelMapping {
 				channelModels := channel.GetModels()
 				// 检查渠道的实际模型与目标模型是否有交集
-				acceptableModels := common.StringsIntersection(channelModels, targetModels)
+				acceptableModels := common.RegexMatchModel(targetModels, channelModels)
 				if len(acceptableModels) > 0 {
 					// 不修改原channel，复制一份
 					copyChannel := *channel
