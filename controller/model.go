@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -123,6 +124,36 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	}
 
+	specificChannelIdVal, specificChannelOk := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
+	if specificChannelOk {
+		channelId, err := strconv.Atoi(specificChannelIdVal.(string))
+		if err == nil && channelId > 0 {
+			models := model.GetChannelEnabledModels(channelId)
+			for _, modelName := range models {
+				if !acceptUnsetRatioModel {
+					_, _, exist := ratio_setting.GetModelRatioOrPrice(modelName)
+					if !exist {
+						continue
+					}
+				}
+				if oaiModel, ok := openAIModelsMap[modelName]; ok {
+					oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+					userOpenAiModels = append(userOpenAiModels, oaiModel)
+				} else {
+					userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+						Id:                     modelName,
+						Object:                 "model",
+						Created:                1626777600,
+						OwnedBy:                "custom",
+						SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+					})
+				}
+			}
+			formatModelsResponse(c, modelType, userOpenAiModels)
+			return
+		}
+	}
+
 	modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
 	if modelLimitEnable {
 		s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
@@ -200,6 +231,19 @@ func ListModels(c *gin.Context, modelType int) {
 				})
 			}
 		}
+	}
+
+	formatModelsResponse(c, modelType, userOpenAiModels)
+}
+
+func formatModelsResponse(c *gin.Context, modelType int, userOpenAiModels []dto.OpenAIModels) {
+	if len(userOpenAiModels) == 0 {
+		c.JSON(200, gin.H{
+			"success": true,
+			"data":    []dto.OpenAIModels{},
+			"object":  "list",
+		})
+		return
 	}
 
 	switch modelType {
