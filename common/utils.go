@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -192,7 +193,7 @@ func Interface2String(inter interface{}) string {
 	case int:
 		return fmt.Sprintf("%d", inter.(int))
 	case float64:
-		return fmt.Sprintf("%f", inter.(float64))
+		return strconv.FormatFloat(inter.(float64), 'f', -1, 64)
 	case bool:
 		if inter.(bool) {
 			return "true"
@@ -263,7 +264,7 @@ func GetTimestamp() int64 {
 }
 
 func GetTimeString() string {
-	now := time.Now()
+	now := time.Now().UTC()
 	return fmt.Sprintf("%s%d", now.Format("20060102150405"), now.UnixNano()%1e9)
 }
 
@@ -333,4 +334,17 @@ func BuildURL(base string, endpoint string) string {
 		return base + endpoint
 	}
 	return u.ResolveReference(ref).String()
+}
+
+func IsNil(i any) bool {
+	if i == nil {
+		return true
+	}
+	v := reflect.ValueOf(i)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
+	}
 }

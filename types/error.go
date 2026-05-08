@@ -40,6 +40,7 @@ type ErrorCode string
 const (
 	ErrorCodeInvalidRequest         ErrorCode = "invalid_request"
 	ErrorCodeSensitiveWordsDetected ErrorCode = "sensitive_words_detected"
+	ErrorCodeViolationFeeGrokCSAM   ErrorCode = "violation_fee.grok.csam"
 
 	// new api error
 	ErrorCodeCountTokenFailed   ErrorCode = "count_token_failed"
@@ -130,6 +131,20 @@ func (e *NewAPIError) Error() string {
 	return e.Err.Error()
 }
 
+func (e *NewAPIError) ErrorWithStatusCode() string {
+	if e == nil {
+		return ""
+	}
+	msg := e.Error()
+	if e.StatusCode == 0 {
+		return msg
+	}
+	if msg == "" {
+		return fmt.Sprintf("status_code=%d", e.StatusCode)
+	}
+	return fmt.Sprintf("status_code=%d, %s", e.StatusCode, msg)
+}
+
 func (e *NewAPIError) MaskSensitiveError() string {
 	if e == nil {
 		return ""
@@ -144,12 +159,36 @@ func (e *NewAPIError) MaskSensitiveError() string {
 	return common.MaskSensitiveInfo(errStr)
 }
 
+func (e *NewAPIError) MaskSensitiveErrorWithStatusCode() string {
+	if e == nil {
+		return ""
+	}
+	msg := e.MaskSensitiveError()
+	if e.StatusCode == 0 {
+		return msg
+	}
+	if msg == "" {
+		return fmt.Sprintf("status_code=%d", e.StatusCode)
+	}
+	return fmt.Sprintf("status_code=%d, %s", e.StatusCode, msg)
+}
+
 func (e *NewAPIError) SetMessage(message string) {
 	e.Err = errors.New(message)
 }
 
 func (e *NewAPIError) ToOpenAIError() OpenAIError {
-	var result OpenAIError
+	result := OpenAIError{
+		Message: e.Error(),
+		Type:    string(e.errorType),
+		Param:   "",
+		Code:    e.errorCode,
+	}
+
+	if common.IsNil(e.RelayError) {
+		return result
+	}
+
 	switch e.errorType {
 	case ErrorTypeOpenAIError:
 		if openAIError, ok := e.RelayError.(OpenAIError); ok {

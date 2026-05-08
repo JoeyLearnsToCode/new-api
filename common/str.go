@@ -16,6 +16,8 @@ var (
 	maskURLPattern    = regexp.MustCompile(`(http|https)://[^\s/$.?#].[^\s]*`)
 	maskDomainPattern = regexp.MustCompile(`\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b`)
 	maskIPPattern     = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+	// maskApiKeyPattern matches patterns like 'api_key:xxx' or "api_key:xxx" to mask the API key value
+	maskApiKeyPattern = regexp.MustCompile(`(['"]?)api_key:([^\s'"]+)(['"]?)`)
 )
 
 func GetStringIfEmpty(str string, defaultValue string) string {
@@ -92,6 +94,21 @@ func StringToByteSlice(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&tmp2))
 }
 
+// StringsIntersection returns the intersection of two string slices
+func StringsIntersection(a []string, b []string) []string {
+	m := make(map[string]struct{})
+	for _, v := range a {
+		m[v] = struct{}{}
+	}
+	var c []string
+	for _, v := range b {
+		if _, ok := m[v]; ok {
+			c = append(c, v)
+		}
+	}
+	return c
+}
+
 func EncodeBase64(str string) string {
 	return base64.StdEncoding.EncodeToString([]byte(str))
 }
@@ -102,6 +119,16 @@ func GetJsonString(data any) string {
 	}
 	b, _ := json.Marshal(data)
 	return string(b)
+}
+
+// NormalizeBillingPreference clamps the billing preference to valid values.
+func NormalizeBillingPreference(pref string) string {
+	switch strings.TrimSpace(pref) {
+	case "subscription_first", "wallet_first", "subscription_only", "wallet_only":
+		return strings.TrimSpace(pref)
+	default:
+		return "subscription_first"
+	}
 }
 
 // MaskEmail masks a user email to prevent PII leakage in logs
@@ -234,6 +261,9 @@ func MaskSensitiveInfo(str string) string {
 
 	// Mask IP addresses
 	str = maskIPPattern.ReplaceAllString(str, "***.***.***.***")
+
+	// Mask API keys (e.g., "api_key:AIzaSyAAAaUooTUni8AdaOkSRMda30n_Q4vrV70" -> "api_key:***")
+	str = maskApiKeyPattern.ReplaceAllString(str, "${1}api_key:***${3}")
 
 	return str
 }

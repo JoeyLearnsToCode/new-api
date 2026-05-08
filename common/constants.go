@@ -1,6 +1,7 @@
 package common
 
 import (
+	"crypto/tls"
 	//"os"
 	//"strconv"
 	"sync"
@@ -38,7 +39,7 @@ var OptionMap map[string]string
 var OptionMapRWMutex sync.RWMutex
 
 var ItemsPerPage = 10
-var MaxRecentItems = 100
+var MaxRecentItems = 1000
 
 var PasswordLoginEnabled = true
 var PasswordRegisterEnabled = true
@@ -72,6 +73,9 @@ var DebugEnabled bool
 var MemoryCacheEnabled bool
 
 var LogConsumeEnabled = true
+
+var TLSInsecureSkipVerify bool
+var InsecureTLSConfig = &tls.Config{InsecureSkipVerify: true}
 
 var SMTPServer = ""
 var SMTPPort = 587
@@ -171,6 +175,10 @@ var (
 
 	DownloadRateLimitNum            = 10
 	DownloadRateLimitDuration int64 = 60
+
+	// Per-user search rate limit (applies after authentication, keyed by user ID)
+	SearchRateLimitNum            = 10
+	SearchRateLimitDuration int64 = 60
 )
 
 var RateLimitKeyExpirationDuration = 20 * time.Minute
@@ -198,6 +206,8 @@ const (
 	ChannelStatusEnabled          = 1 // don't use 0, 0 is the default value!
 	ChannelStatusManuallyDisabled = 2 // also don't use 0
 	ChannelStatusAutoDisabled     = 3
+
+	ChannelStatusExpiredDisabled  = 104 // expired and auto-disabled
 )
 
 const (

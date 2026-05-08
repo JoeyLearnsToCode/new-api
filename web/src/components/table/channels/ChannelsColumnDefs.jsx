@@ -110,7 +110,9 @@ const renderType = (type, record = {}, t) => {
       <Tooltip
         content={
           <div className='max-w-xs'>
-            <div className='text-xs text-gray-600'>{t('来源于 IO.NET 部署')}</div>
+            <div className='text-xs text-gray-600'>
+              {t('来源于 IO.NET 部署')}
+            </div>
             {ionetMeta?.deployment_id && (
               <div className='text-xs text-gray-500 mt-1'>
                 {t('部署 ID')}: {ionetMeta.deployment_id}
@@ -173,6 +175,12 @@ const renderStatus = (status, channelInfo = undefined, t) => {
           {t('自动禁用')}
         </Tag>
       );
+    case 104:
+      return (
+        <Tag color='orange' shape='circle'>
+          {t('过期禁用')}
+        </Tag>
+      );
     default:
       return (
         <Tag color='grey' shape='circle'>
@@ -200,6 +208,12 @@ const renderMultiKeyStatus = (status, keySize, enabledKeySize, t) => {
       return (
         <Tag color='yellow' shape='circle'>
           {t('自动禁用')} {enabledKeySize}/{keySize}
+        </Tag>
+      );
+    case 104:
+      return (
+        <Tag color='orange' shape='circle'>
+          {t('过期禁用')} {enabledKeySize}/{keySize}
         </Tag>
       );
     default:
@@ -408,7 +422,7 @@ export const getChannelsColumns = ({
       title: t('状态'),
       dataIndex: 'status',
       render: (text, record, index) => {
-        if (text === 3) {
+        if (text === 3 || text === 104) {
           if (record.other_info === '') {
             record.other_info = '{}';
           }

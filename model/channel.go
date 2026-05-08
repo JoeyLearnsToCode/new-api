@@ -249,6 +249,14 @@ func (channel *Channel) GetAutoBan() bool {
 	return *channel.AutoBan == 1
 }
 
+func (channel *Channel) GetStreamSupport() string {
+	setting := channel.GetSetting()
+	if setting.StreamSupport != "" {
+		return setting.StreamSupport
+	}
+	return constant.StreamSupportBoth // 默认支持流式和非流式
+}
+
 func (channel *Channel) Save() error {
 	return DB.Save(channel).Error
 }
@@ -282,9 +290,6 @@ func GetChannelsByTag(tag string, idSort bool, selectAll bool) ([]*Channel, erro
 		order = "id desc"
 	}
 	query := DB.Where("tag = ?", tag).Order(order)
-	if !selectAll {
-		query = query.Omit("key")
-	}
 	err := query.Find(&channels).Error
 	return channels, err
 }
@@ -534,6 +539,18 @@ func (channel *Channel) Delete() error {
 	return err
 }
 
+func (channel *Channel) MustGetModelMappingMap() map[string]string {
+	modelMapping := make(map[string]string)
+	modelMappingStr := strings.TrimSpace(channel.GetModelMapping())
+	if modelMappingStr != "" {
+		err := json.Unmarshal([]byte(modelMappingStr), &modelMapping)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return modelMapping
+}
+
 var channelStatusLock sync.Mutex
 
 // channelPollingLocks stores locks for each channel.id to ensure thread-safe polling
@@ -774,7 +791,8 @@ func DeleteChannelByStatus(status int64) (int64, error) {
 }
 
 func DeleteDisabledChannel() (int64, error) {
-	result := DB.Where("status = ? or status = ?", common.ChannelStatusAutoDisabled, common.ChannelStatusManuallyDisabled).Delete(&Channel{})
+	disableStatus := []int64{common.ChannelStatusAutoDisabled, common.ChannelStatusManuallyDisabled, common.ChannelStatusExpiredDisabled}
+	result := DB.Where("status in ?", disableStatus).Delete(&Channel{})
 	return result.RowsAffected, result.Error
 }
 

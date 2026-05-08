@@ -32,6 +32,7 @@ const ChannelsActions = ({
   enableBatchDelete,
   batchDeleteChannels,
   setShowBatchSetTag,
+  setShowModelUpdateModeModal,
   testAllChannels,
   fixChannelsAbilities,
   updateAllChannelsBalance,
@@ -54,6 +55,7 @@ const ChannelsActions = ({
   setActivePage,
   setShowExportModal,
   setShowImportModal,
+  selectedChannels,
   t,
 }) => {
   return (
@@ -86,6 +88,16 @@ const ChannelsActions = ({
             className='w-full md:w-auto'
           >
             {t('批量设置标签')}
+          </Button>
+
+          <Button
+            size='small'
+            disabled={!enableBatchDelete || selectedChannels.length === 0}
+            type='tertiary'
+            onClick={() => setShowModelUpdateModeModal(true)}
+            className='w-full md:w-auto'
+          >
+            {t('更新模型')}
           </Button>
 
           <Dropdown
@@ -122,14 +134,14 @@ const ChannelsActions = ({
                     onClick={() => {
                       Modal.confirm({
                         title: t('确定？'),
-                        content: t('确定要测试所有通道吗？'),
+                        content: t('确定要测试所有未手动禁用渠道吗？'),
                         onOk: () => testAllChannels(),
                         size: 'small',
                         centered: true,
                       });
                     }}
                   >
-                    {t('测试所有通道')}
+                    {t('测试所有未手动禁用渠道')}
                   </Button>
                 </Dropdown.Item>
                 <Dropdown.Item>
