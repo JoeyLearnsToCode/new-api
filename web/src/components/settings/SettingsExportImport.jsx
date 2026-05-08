@@ -123,40 +123,26 @@ const SettingsExportImport = ({ inputs, onRefresh }) => {
       }
 
       setImporting(true);
-      const keys = Object.keys(settings);
-      let successCount = 0;
-      let failCount = 0;
-      const failedKeys = [];
-
-      for (const key of keys) {
-        try {
-          const res = await API.put('/api/option/', {
-            key,
-            value: settings[key],
-          });
-          if (res.data?.success) {
-            successCount++;
-          } else {
-            failCount++;
-            failedKeys.push({ key, reason: res.data?.message || 'unknown' });
-          }
-        } catch (error) {
-          failCount++;
-          failedKeys.push({ key, reason: error.message });
+      const res = await API.post('/api/option/import', { settings });
+      const { success, message, data } = res.data;
+      if (success) {
+        const successCount = data?.success_count || 0;
+        const failCount = data?.fail_count || 0;
+        const failedKeys = data?.failed || [];
+        setImportResult({ successCount, failCount, failedKeys });
+        if (failCount === 0) {
+          showSuccess(t('导入完成：成功 ${count} 项').replace('${count}', successCount));
+        } else {
+          showInfo(
+            t('导入完成：成功 ${success} 项，失败 ${failed} 项')
+              .replace('${success}', successCount)
+              .replace('${failed}', failCount),
+          );
         }
-      }
-
-      setImportResult({ successCount, failCount, failedKeys });
-      if (failCount === 0) {
-        showSuccess(t('导入完成：成功 ${count} 项').replace('${count}', successCount));
+        onRefresh?.();
       } else {
-        showInfo(
-          t('导入完成：成功 ${success} 项，失败 ${failed} 项')
-            .replace('${success}', successCount)
-            .replace('${failed}', failCount),
-        );
+        showError(message);
       }
-      onRefresh?.();
     } catch (error) {
       showError(error.message);
     } finally {
