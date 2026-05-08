@@ -114,6 +114,10 @@ export const useChannelsData = () => {
   const [showMultiKeyManageModal, setShowMultiKeyManageModal] = useState(false);
   const [currentMultiKeyChannel, setCurrentMultiKeyChannel] = useState(null);
 
+  // Export/Import states
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+
   // Refs
   const requestCounter = useRef(0);
   const allSelectingRef = useRef(false);
@@ -1163,6 +1167,12 @@ export const useChannelsData = () => {
     setShowMultiKeyManageModal,
     currentMultiKeyChannel,
     setCurrentMultiKeyChannel,
+
+    // Export/Import states
+    showExportModal,
+    setShowExportModal,
+    showImportModal,
+    setShowImportModal,
 
     // Form
     formApi,

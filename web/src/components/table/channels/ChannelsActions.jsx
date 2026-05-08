@@ -52,6 +52,8 @@ const ChannelsActions = ({
   activePage,
   pageSize,
   setActivePage,
+  setShowExportModal,
+  setShowImportModal,
   t,
 }) => {
   return (
@@ -91,6 +93,27 @@ const ChannelsActions = ({
             trigger='click'
             render={
               <Dropdown.Menu>
+                <Dropdown.Item>
+                  <Button
+                    size='small'
+                    type='secondary'
+                    className='w-full'
+                    onClick={() => setShowExportModal(true)}
+                  >
+                    {t('导出渠道')}
+                  </Button>
+                </Dropdown.Item>
+                <Dropdown.Item>
+                  <Button
+                    size='small'
+                    type='secondary'
+                    className='w-full'
+                    onClick={() => setShowImportModal(true)}
+                  >
+                    {t('导入渠道')}
+                  </Button>
+                </Dropdown.Item>
+                <Dropdown.Divider />
                 <Dropdown.Item>
                   <Button
                     size='small'

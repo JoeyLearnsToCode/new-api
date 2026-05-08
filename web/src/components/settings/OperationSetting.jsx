@@ -27,6 +27,7 @@ import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
 import { API, showError, toBoolean } from '../../helpers';
+import SettingsExportImport from './SettingsExportImport';
 
 const OperationSetting = () => {
   let [inputs, setInputs] = useState({
@@ -139,6 +140,10 @@ const OperationSetting = () => {
         {/* 额度设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* 设置导出/导入 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsExportImport inputs={inputs} onRefresh={onRefresh} />
         </Card>
       </Spin>
     </>

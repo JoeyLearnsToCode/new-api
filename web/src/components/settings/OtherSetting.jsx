@@ -29,6 +29,7 @@ import {
   Card,
 } from '@douyinfe/semi-ui';
 import { API, showError, showSuccess, timestamp2string } from '../../helpers';
+import SettingsExportImport from './SettingsExportImport';
 import { marked } from 'marked';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
@@ -493,6 +494,10 @@ const OtherSetting = () => {
             </Form.Section>
           </Card>
         </Form>
+        {/* 设置导出/导入 */}
+        <Card>
+          <SettingsExportImport inputs={inputs} onRefresh={getOptions} />
+        </Card>
       </Col>
       <Modal
         title={t('新版本') + '：' + updateData.tag_name}

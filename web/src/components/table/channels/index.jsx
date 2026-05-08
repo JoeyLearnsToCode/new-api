@@ -33,6 +33,8 @@ import ColumnSelectorModal from './modals/ColumnSelectorModal';
 import EditChannelModal from './modals/EditChannelModal';
 import EditTagModal from './modals/EditTagModal';
 import MultiKeyManageModal from './modals/MultiKeyManageModal';
+import ChannelExportModal from './modals/ChannelExportModal';
+import ChannelImportModal from './modals/ChannelImportModal';
 import { createCardProPagination } from '../../../helpers/utils';
 
 const ChannelsPage = () => {
@@ -62,6 +64,19 @@ const ChannelsPage = () => {
         onCancel={() => channelsData.setShowMultiKeyManageModal(false)}
         channel={channelsData.currentMultiKeyChannel}
         onRefresh={channelsData.refresh}
+      />
+      <ChannelExportModal
+        visible={channelsData.showExportModal}
+        handleClose={() => channelsData.setShowExportModal(false)}
+        selectedChannels={channelsData.selectedChannels}
+        enableBatchDelete={channelsData.enableBatchDelete}
+        t={channelsData.t}
+      />
+      <ChannelImportModal
+        visible={channelsData.showImportModal}
+        handleClose={() => channelsData.setShowImportModal(false)}
+        onRefresh={channelsData.refresh}
+        t={channelsData.t}
       />
 
       {/* Main Content */}
