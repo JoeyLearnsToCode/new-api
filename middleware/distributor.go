@@ -56,12 +56,18 @@ func Distribute() func(c *gin.Context) {
 				return
 			}
 
-			// 如果存在 specific_channel_id 且模型名称以 _channel${id} 结尾，则去掉该后缀
+			// 如果存在 specific_channel_id 且模型名称包含特定字符串，则去掉
 			if channelId != "" {
-				suffix := "_channel" + strconv.Itoa(id)
-				modelRequest.Model = strings.TrimSuffix(modelRequest.Model, suffix)
+				idStr := strconv.Itoa(id)
+				r := strings.NewReplacer(
+					"_channel"+idStr+"_", "",
+					"_channel"+idStr, "",
+					"_channel-"+idStr+"_", "",
+					"_channel-"+idStr, "",
+				)
+				modelRequest.Model = r.Replace(modelRequest.Model)
 			}
-			
+
 			// 应用全局模型映射
 			targetModels, usingGlobalModelMapping := model_setting.ResolveGlobalModelMappings(modelRequest.Model)
 			if usingGlobalModelMapping {
