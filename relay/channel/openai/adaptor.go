@@ -341,12 +341,6 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			info.UpstreamModelName = originModel
 			request.Model = originModel
 		}
-		// 优先使用原始模型推理力度
-		if originEffort, _ := parseReasoningEffortFromModelSuffix(info.OriginModelName); originEffort != "" {
-			request.ReasoningEffort = originEffort
-		}
-
-		info.ReasoningEffort = request.ReasoningEffort
 
 		// o系列模型developer适配（o1-mini除外）
 		if !strings.HasPrefix(info.UpstreamModelName, "o1-mini") && !strings.HasPrefix(info.UpstreamModelName, "o1-preview") {
@@ -356,6 +350,16 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			}
 		}
 	}
+
+	// 转换模型推理力度后缀（对所有模型生效）
+	if effort, _ := parseReasoningEffortFromModelSuffix(info.UpstreamModelName); effort != "" {
+		request.ReasoningEffort = effort
+	}
+	// 优先使用原始模型推理力度
+	if originEffort, _ := parseReasoningEffortFromModelSuffix(info.OriginModelName); originEffort != "" {
+		request.ReasoningEffort = originEffort
+	}
+	info.ReasoningEffort = request.ReasoningEffort
 
 	return request, nil
 }
