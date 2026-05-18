@@ -42,7 +42,11 @@ type Adaptor struct {
 // support OAI models: o1-mini/o3-mini/o4-mini/o1/o3 etc...
 // minimal effort only available in gpt-5
 func parseReasoningEffortFromModelSuffix(model string) (string, string) {
-	effortSuffixes := []string{"-high", "-minimal", "-low", "-medium", "-none", "-xhigh"}
+	effortSuffixes := []string{"-xhigh", "-high", "-minimal", "-low", "-medium", "-none"}
+	// deepseek-v4 支持 max 推理强度
+	if strings.Contains(strings.ToLower(model), "deepseek") {
+		effortSuffixes = append(effortSuffixes, "-max")
+	}
 	for _, suffix := range effortSuffixes {
 		if strings.HasSuffix(model, suffix) {
 			effort := strings.TrimPrefix(suffix, "-")
@@ -337,6 +341,10 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			info.UpstreamModelName = originModel
 			request.Model = originModel
 		}
+		// 优先使用原始模型推理力度
+		if originEffort, _ := parseReasoningEffortFromModelSuffix(info.OriginModelName); originEffort != "" {
+			request.ReasoningEffort = originEffort
+		}
 
 		info.ReasoningEffort = request.ReasoningEffort
 
@@ -586,6 +594,16 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 			request.Reasoning.Effort = effort
 		}
 		request.Model = originModel
+	}
+	// 优先使用原始模型推理力度
+	if originEffort, _ := parseReasoningEffortFromModelSuffix(info.OriginModelName); originEffort != "" {
+		if request.Reasoning == nil {
+			request.Reasoning = &dto.Reasoning{
+				Effort: originEffort,
+			}
+		} else {
+			request.Reasoning.Effort = originEffort
+		}
 	}
 	if info != nil && request.Reasoning != nil && request.Reasoning.Effort != "" {
 		info.ReasoningEffort = request.Reasoning.Effort
