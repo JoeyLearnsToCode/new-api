@@ -34,35 +34,15 @@ func ModelMappedHelper(c *gin.Context, info *common.RelayInfo, request dto.Reque
 			return fmt.Errorf("unmarshal_model_mapping_failed")
 		}
 
-		// 支持链式模型重定向，最终使用链尾的模型
-		currentModel := mappingModelName
-		visitedModels := map[string]bool{
-			currentModel: true,
+		currentModel, isModelMapped, err := MapModel(mappingModelName, modelMap)
+		if err != nil {
+			return err
 		}
-		for {
-			if mappedModel, exists := modelMap[currentModel]; exists && mappedModel != "" {
-				// 模型重定向循环检测，避免无限循环
-				if visitedModels[mappedModel] {
-					if mappedModel == currentModel {
-						if currentModel == info.OriginModelName {
-							info.IsModelMapped = false
-							return nil
-						} else {
-							info.IsModelMapped = true
-							break
-						}
-					}
-					return errors.New("model_mapping_contains_cycle")
-				}
-				visitedModels[mappedModel] = true
-				currentModel = mappedModel
-				info.IsModelMapped = true
-			} else {
-				break
-			}
-		}
-		if info.IsModelMapped {
+		if isModelMapped {
+			info.IsModelMapped = isModelMapped
 			info.UpstreamModelName = currentModel
+		} else {
+			return nil
 		}
 	}
 
@@ -78,4 +58,36 @@ func ModelMappedHelper(c *gin.Context, info *common.RelayInfo, request dto.Reque
 		request.SetModelName(info.UpstreamModelName)
 	}
 	return nil
+}
+
+// 支持链式模型重定向，最终使用链尾的模型
+func MapModel(mappingModelName string, modelMap map[string]string) (string, bool, error) {
+	currentModel := mappingModelName
+	visitedModels := map[string]bool{
+		currentModel: true,
+	}
+	isModelMapped := false
+	for {
+		if mappedModel, exists := modelMap[currentModel]; exists && mappedModel != "" {
+			// 模型重定向循环检测，避免无限循环
+			if visitedModels[mappedModel] {
+				if mappedModel == currentModel {
+					if currentModel == mappingModelName {
+						isModelMapped = false
+						return mappingModelName, isModelMapped, nil
+					} else {
+						isModelMapped = true
+						break
+					}
+				}
+				return mappingModelName, false, errors.New("model_mapping_contains_cycle")
+			}
+			visitedModels[mappedModel] = true
+			currentModel = mappedModel
+			isModelMapped = true
+		} else {
+			break
+		}
+	}
+	return currentModel, isModelMapped, nil
 }

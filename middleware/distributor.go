@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -78,7 +79,9 @@ func Distribute() func(c *gin.Context) {
 					// 不修改原channel，复制一份
 					copyChannel := *channel
 					modelMap := copyChannel.MustGetModelMappingMap()
-					modelMap[modelRequest.Model] = acceptableModels[rand.Intn(len(acceptableModels))]
+					selectedModel := acceptableModels[rand.Intn(len(acceptableModels))]
+					mappedModel, _, _ := helper.MapModel(selectedModel, modelMap)
+					modelMap[modelRequest.Model] = mappedModel
 					modelMappingBytes, _ := json.Marshal(modelMap)
 					copyChannel.ModelMapping = common.GetPointer[string](string(modelMappingBytes))
 					channel = &copyChannel
