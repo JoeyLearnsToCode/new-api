@@ -22,7 +22,7 @@ func MoeAtelierMiddleware(moeFS embed.FS) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		if !strings.HasPrefix(strings.ToLower(c.Request.Host), "imagen.") {
+		if !strings.HasPrefix(strings.ToLower(c.Request.Host), "imagen") {
 			c.Next()
 			return
 		}

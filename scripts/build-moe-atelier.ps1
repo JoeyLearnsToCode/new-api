@@ -37,6 +37,7 @@ try {
 
 Write-Host "=== Copying dist to $OutputDir ===" -ForegroundColor Green
 New-Item -ItemType Directory -Path $outDir -Force
+Remove-Item -Recurse -Force $outDir -ErrorAction SilentlyContinue
 Move-Item -Path "$moeDir/dist" -Destination $outDir -Force
 if ($LASTEXITCODE -ne 0) { throw "moving dist failed with exit code $LASTEXITCODE" }
 

@@ -18,6 +18,7 @@ var (
 		"dall-e-2",
 		"gpt-image-1",
 		"prefix:imagen-",
+		"contains:image",
 		"flux-",
 		"flux.1-",
 	}
@@ -46,6 +47,9 @@ func IsImageGenerationModel(modelName string) bool {
 			return true
 		}
 		if strings.HasPrefix(m, "prefix:") && strings.HasPrefix(modelName, strings.TrimPrefix(m, "prefix:")) {
+			return true
+		}
+		if strings.HasPrefix(m, "contains:") && strings.Contains(modelName, strings.TrimPrefix(m, "contains:")) {
 			return true
 		}
 	}
