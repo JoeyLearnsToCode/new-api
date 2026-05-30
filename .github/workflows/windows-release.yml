@@ -34,6 +34,20 @@ jobs:
           bun install
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags) bun run build
           cd ..
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build moe-atelier frontend
+        run: |
+          git clone --depth 1 https://github.com/JoeyLearnsToCode/moe-atelier.git moe-atelier-tmp
+          cd moe-atelier-tmp
+          npm install
+          npm run build
+          mkdir -p ../web/moe-atelier-dist
+          cp -r dist/* ../web/moe-atelier-dist/
+          cd ..
+          rm -rf moe-atelier-tmp
       - name: Set up Go
         uses: actions/setup-go@v3
         with:

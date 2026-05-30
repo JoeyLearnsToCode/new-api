@@ -1,3 +1,10 @@
+FROM node:20-alpine AS moe-builder
+RUN apk add --no-cache git
+WORKDIR /app
+RUN git clone --depth 1 https://github.com/JoeyLearnsToCode/moe-atelier.git . && \
+    npm install && \
+    npm run build
+
 FROM oven/bun:latest AS builder
 
 WORKDIR /build
@@ -20,6 +27,7 @@ ADD go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+COPY --from=moe-builder /app/dist ./web/moe-atelier-dist
 COPY --from=builder /build/dist ./web/dist
 RUN go build -ldflags "-s -w -X 'one-api/common.Version=$(cat VERSION)'" -o one-api
 

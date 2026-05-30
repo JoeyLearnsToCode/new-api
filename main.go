@@ -32,6 +32,9 @@ var buildFS embed.FS
 //go:embed web/dist/index.html
 var indexPage []byte
 
+//go:embed web/moe-atelier-dist
+var moeAtelierFS embed.FS
+
 func main() {
 
 	err := InitResources()
@@ -148,6 +151,9 @@ func main() {
 		SameSite: http.SameSiteStrictMode,
 	})
 	server.Use(sessions.Sessions("session", store))
+
+	// Host-based routing for moe-atelier — MUST be registered before other routes
+	server.Use(middleware.MoeAtelierMiddleware(moeAtelierFS))
 
 	router.SetRouter(server, buildFS, indexPage)
 	var port = os.Getenv("PORT")
