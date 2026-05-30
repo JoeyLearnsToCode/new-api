@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"one-api/common"
-	"one-api/constant"
-	"one-api/setting/ratio_setting"
-	"one-api/types"
 	"sync"
 	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 )
 
 type Pricing struct {
@@ -26,6 +27,7 @@ type Pricing struct {
 	CompletionRatio        float64                 `json:"completion_ratio"`
 	EnableGroup            []string                `json:"enable_groups"`
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
+	PricingVersion         string                  `json:"pricing_version,omitempty"`
 }
 
 type PricingVendor struct {
@@ -155,9 +157,12 @@ func updatePricing() {
 		vendorMap[vendors[i].Id] = &vendors[i]
 	}
 
+	// 初始化默认供应商映射
+	initDefaultVendorMapping(metaMap, vendorMap, enableAbilities)
+
 	// 构建对前端友好的供应商列表
-	vendorsList = make([]PricingVendor, 0, len(vendors))
-	for _, v := range vendors {
+	vendorsList = make([]PricingVendor, 0, len(vendorMap))
+	for _, v := range vendorMap {
 		vendorsList = append(vendorsList, PricingVendor{
 			ID:          v.Id,
 			Name:        v.Name,
@@ -192,20 +197,25 @@ func updatePricing() {
 		modelSupportEndpointsStr[ability.Model] = endpoints
 	}
 
-	// 再补充模型自定义端点
+	// 再补充模型自定义端点：若配置有效则替换默认端点，不做合并
 	for modelName, meta := range metaMap {
 		if strings.TrimSpace(meta.Endpoints) == "" {
 			continue
 		}
 		var raw map[string]interface{}
 		if err := json.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
-			endpoints := modelSupportEndpointsStr[modelName]
-			for k := range raw {
-				if !common.StringsContains(endpoints, k) {
-					endpoints = append(endpoints, k)
+			endpoints := make([]string, 0, len(raw))
+			for k, v := range raw {
+				switch v.(type) {
+				case string, map[string]interface{}:
+					if !common.StringsContains(endpoints, k) {
+						endpoints = append(endpoints, k)
+					}
 				}
 			}
-			modelSupportEndpointsStr[modelName] = endpoints
+			if len(endpoints) > 0 {
+				modelSupportEndpointsStr[modelName] = endpoints
+			}
 		}
 	}
 
@@ -288,6 +298,11 @@ func updatePricing() {
 			pricing.QuotaType = 0
 		}
 		pricingMap = append(pricingMap, pricing)
+	}
+
+	// 防止大更新后数据不通用
+	if len(pricingMap) > 0 {
+		pricingMap[0].PricingVersion = "82c4a357505fff6fee8462c3f7ec8a645bb95532669cb73b2cabee6a416ec24f"
 	}
 
 	// 刷新缓存映射，供高并发快速查询

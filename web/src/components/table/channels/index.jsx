@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { Banner } from '@douyinfe/semi-ui';
+import { IconAlertTriangle } from '@douyinfe/semi-icons';
 import CardPro from '../../common/ui/CardPro';
 import ChannelsTable from './ChannelsTable';
 import ChannelsActions from './ChannelsActions';
@@ -26,11 +28,15 @@ import ChannelsTabs from './ChannelsTabs';
 import { useChannelsData } from '../../../hooks/channels/useChannelsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import BatchTagModal from './modals/BatchTagModal';
+import BatchModelUpdateModal from './modals/BatchModelUpdateModal';
+import ModelUpdateModeModal from './modals/ModelUpdateModeModal';
 import ModelTestModal from './modals/ModelTestModal';
 import ColumnSelectorModal from './modals/ColumnSelectorModal';
 import EditChannelModal from './modals/EditChannelModal';
 import EditTagModal from './modals/EditTagModal';
 import MultiKeyManageModal from './modals/MultiKeyManageModal';
+import ChannelExportModal from './modals/ChannelExportModal';
+import ChannelImportModal from './modals/ChannelImportModal';
 import { createCardProPagination } from '../../../helpers/utils';
 
 const ChannelsPage = () => {
@@ -54,6 +60,24 @@ const ChannelsPage = () => {
         editingChannel={channelsData.editingChannel}
       />
       <BatchTagModal {...channelsData} />
+      <ModelUpdateModeModal
+        visible={channelsData.showModelUpdateModeModal}
+        onCancel={() => channelsData.setShowModelUpdateModeModal(false)}
+        onConfirm={(mode) => {
+          channelsData.setShowModelUpdateModeModal(false);
+          channelsData.setUpdateMode(mode);
+          channelsData.setShowBatchModelUpdate(true);
+        }}
+        t={channelsData.t}
+      />
+      <BatchModelUpdateModal
+        visible={channelsData.showBatchModelUpdate}
+        onCancel={() => channelsData.setShowBatchModelUpdate(false)}
+        selectedChannels={channelsData.selectedChannels}
+        onRefresh={channelsData.refresh}
+        updateMode={channelsData.updateMode}
+        t={channelsData.t}
+      />
       <ModelTestModal {...channelsData} />
       <MultiKeyManageModal
         visible={channelsData.showMultiKeyManageModal}
@@ -61,10 +85,39 @@ const ChannelsPage = () => {
         channel={channelsData.currentMultiKeyChannel}
         onRefresh={channelsData.refresh}
       />
+      <ChannelExportModal
+        visible={channelsData.showExportModal}
+        handleClose={() => channelsData.setShowExportModal(false)}
+        selectedChannels={channelsData.selectedChannels}
+        enableBatchDelete={channelsData.enableBatchDelete}
+        t={channelsData.t}
+      />
+      <ChannelImportModal
+        visible={channelsData.showImportModal}
+        handleClose={() => channelsData.setShowImportModal(false)}
+        onRefresh={channelsData.refresh}
+        t={channelsData.t}
+      />
 
       {/* Main Content */}
+      {channelsData.globalPassThroughEnabled ? (
+        <Banner
+          type='warning'
+          closeIcon={null}
+          icon={
+            <IconAlertTriangle
+              size='large'
+              style={{ color: 'var(--semi-color-warning)' }}
+            />
+          }
+          description={channelsData.t(
+            '已开启全局请求透传：参数覆写、模型重定向、渠道适配等 NewAPI 内置功能将失效，非最佳实践；如因此产生问题，请勿提交 issue 反馈。',
+          )}
+          style={{ marginBottom: 12 }}
+        />
+      ) : null}
       <CardPro
-        type="type3"
+        type='type3'
         tabsArea={<ChannelsTabs {...channelsData} />}
         actionsArea={<ChannelsActions {...channelsData} />}
         searchArea={<ChannelsFilters {...channelsData} />}
@@ -85,4 +138,4 @@ const ChannelsPage = () => {
   );
 };
 
-export default ChannelsPage; 
+export default ChannelsPage;

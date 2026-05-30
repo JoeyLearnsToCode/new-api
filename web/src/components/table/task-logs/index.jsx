@@ -25,6 +25,7 @@ import TaskLogsActions from './TaskLogsActions';
 import TaskLogsFilters from './TaskLogsFilters';
 import ColumnSelectorModal from './modals/ColumnSelectorModal';
 import ContentModal from './modals/ContentModal';
+import AudioPreviewModal from './modals/AudioPreviewModal';
 import { useTaskLogsData } from '../../../hooks/task-logs/useTaskLogsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
@@ -45,10 +46,15 @@ const TaskLogsPage = () => {
         modalContent={taskLogsData.videoUrl}
         isVideo={true}
       />
+      <AudioPreviewModal
+        isModalOpen={taskLogsData.isAudioModalOpen}
+        setIsModalOpen={taskLogsData.setIsAudioModalOpen}
+        audioClips={taskLogsData.audioClips}
+      />
 
       <Layout>
         <CardPro
-          type="type2"
+          type='type2'
           statsArea={<TaskLogsActions {...taskLogsData} />}
           searchArea={<TaskLogsFilters {...taskLogsData} />}
           paginationArea={createCardProPagination({
@@ -69,4 +75,4 @@ const TaskLogsPage = () => {
   );
 };
 
-export default TaskLogsPage; 
+export default TaskLogsPage;

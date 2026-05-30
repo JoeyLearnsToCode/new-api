@@ -3,9 +3,12 @@ package model
 import (
 	"errors"
 	"fmt"
-	"one-api/common"
+	"sort"
 	"strings"
 	"sync"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -37,6 +40,12 @@ func GetAllEnableAbilityWithChannels() ([]AbilityWithChannel, error) {
 	return abilities, err
 }
 
+func GetChannelEnabledModels(channelId int) []string {
+	var models []string
+	DB.Table("abilities").Where("channel_id = ? and enabled = ?", channelId, true).Distinct("model").Pluck("model", &models)
+	return models
+}
+
 func GetGroupEnabledModels(group string) []string {
 	var models []string
 	// Find distinct models
@@ -57,12 +66,13 @@ func GetAllEnableAbilities() []Ability {
 	return abilities
 }
 
-func getPriority(group string, model string, retry int) (int, error) {
+func getPriority(group, modelQuery string, modelArgs []any, retry int) (int, error) {
 
 	var priorities []int
 	err := DB.Model(&Ability{}).
 		Select("DISTINCT(priority)").
-		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
+		Where(commonGroupCol+" = ? and enabled = ?", group, true).
+		Where(modelQuery, modelArgs...).
 		Order("priority DESC").              // 按优先级降序排序
 		Pluck("priority", &priorities).Error // Pluck用于将查询的结果直接扫描到一个切片中
 
@@ -87,38 +97,183 @@ func getPriority(group string, model string, retry int) (int, error) {
 	return priorityToUse, nil
 }
 
-func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
-	channelQuery := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery)
-	if retry != 0 {
-		priority, err := getPriority(group, model, retry)
-		if err != nil {
-			return nil, err
+func applyRetryFiltering(abilities []Ability, retry int) ([]Ability, error) {
+	if len(abilities) == 0 {
+		return abilities, nil
+	}
+
+	// 从abilities中提取所有不同的优先级并排序
+	prioritySet := make(map[int64]bool)
+	for _, ability := range abilities {
+		if ability.Priority != nil {
+			prioritySet[*ability.Priority] = true
 		} else {
-			channelQuery = DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority)
+			prioritySet[0] = true
 		}
 	}
 
-	return channelQuery, nil
+	if len(prioritySet) == 0 {
+		// 如果没有优先级信息，返回所有abilities
+		return abilities, nil
+	}
+
+	// 将优先级转换为切片并按降序排序
+	var priorities []int64
+	for priority := range prioritySet {
+		priorities = append(priorities, priority)
+	}
+	sort.Slice(priorities, func(i, j int) bool {
+		return priorities[i] > priorities[j]
+	})
+
+	// 确定要使用的优先级
+	var targetPriority int64
+	if retry >= len(priorities) {
+		// 如果重试次数大于优先级数，则使用最小的优先级
+		targetPriority = priorities[len(priorities)-1]
+	} else {
+		targetPriority = priorities[retry]
+	}
+
+	// 筛选出匹配目标优先级的abilities
+	var filtered []Ability
+	for _, ability := range abilities {
+		curPriority := int64(0)
+		if ability.Priority != nil {
+			curPriority = *ability.Priority
+		}
+		if curPriority == targetPriority {
+			filtered = append(filtered, ability)
+		}
+	}
+	return filtered, nil
 }
 
-func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
+func filterAbilities(isStream *bool, abilities []Ability) (filteredAbilities []Ability, err error) {
+	filteredAbilities = abilities
+	if isStream == nil {
+		return
+	}
+
+	if isStream != nil {
+		filteredAbilities = nil
+		isStreamRequest := *isStream
+
+		var jsonQuery string
+		if common.UsingPostgreSQL {
+			jsonQuery = "(setting IS NULL OR setting = '' OR setting::jsonb->>'stream_support' IN (?, ?) OR setting::jsonb->>'stream_support' IS NULL)"
+		} else {
+			// SQLite or MySQL
+			jsonQuery = "(setting IS NULL OR setting = '' OR JSON_EXTRACT(setting, '$.stream_support') IN (?, ?) OR JSON_EXTRACT(setting, '$.stream_support') IS NULL)"
+		}
+		var args []interface{}
+		if isStreamRequest {
+			args = []interface{}{constant.StreamSupportBoth, constant.StreamSupportOnly}
+		} else {
+			args = []interface{}{constant.StreamSupportBoth, constant.StreamSupportNonStream}
+		}
+
+		// Extract channel IDs from abilities
+		channelIds := make([]int, len(abilities))
+		for i, ability := range abilities {
+			channelIds[i] = ability.ChannelId
+		}
+
+		if len(channelIds) > 0 {
+			// Query channels that match both the ID list and the JSON filter
+			var validChannelIds []int
+			err = DB.Model(&Channel{}).
+				Where("id IN (?)", channelIds).
+				Where(jsonQuery, args...).
+				Pluck("id", &validChannelIds).Error
+			if err != nil {
+				return nil, err
+			}
+
+			// Filter abilities based on valid channel IDs
+			validChannelIdSet := make(map[int]bool)
+			for _, id := range validChannelIds {
+				validChannelIdSet[id] = true
+			}
+			for _, ability := range abilities {
+				if validChannelIdSet[ability.ChannelId] {
+					filteredAbilities = append(filteredAbilities, ability)
+				}
+			}
+		}
+	}
+	return
+}
+
+func models2Condition(models []string) (query string, args []any) {
+	var normalModels []string
+	var regexModels []string
+
+	// 分离普通字符串和正则表达式
+	for _, model := range models {
+		if strings.HasPrefix(model, "/") {
+			// 去掉开头的 '/' 符号
+			regexModels = append(regexModels, model[1:])
+		} else {
+			normalModels = append(normalModels, model)
+		}
+	}
+
+	var conditions []string
+
+	// 处理普通字符串组
+	if len(normalModels) > 0 {
+		conditions = append(conditions, "model IN ?")
+		args = append(args, normalModels)
+	}
+
+	// 处理正则表达式组
+	for _, regex := range regexModels {
+		conditions = append(conditions, "model REGEXP ?")
+		args = append(args, regex)
+	}
+
+	// 用 OR 连接所有条件
+	query = strings.Join(conditions, " OR ")
+
+	return query, args
+}
+
+func getChannelQuery(group string, models []string) *gorm.DB {
+	modelQuery, modelArgs := models2Condition(models)
+	channelQuery := DB.Where(commonGroupCol+" = ? and enabled = ?", group, true).
+		Where(modelQuery, modelArgs...)
+	return channelQuery
+}
+
+func GetChannel(group string, models []string, retry int, isStream *bool) (*Channel, *Ability, error) {
 	var abilities []Ability
 
 	var err error = nil
-	channelQuery, err := getChannelQuery(group, model, retry)
-	if err != nil {
-		return nil, err
-	}
+	channelQuery := getChannelQuery(group, models)
 	if common.UsingSQLite || common.UsingPostgreSQL {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	} else {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	channel := Channel{}
+
+	if abilities, err = filterAbilities(isStream, abilities); err != nil {
+		return nil, nil, fmt.Errorf("filterAbilities failed: %w", err)
+	}
+
+	abilities, err = applyRetryFiltering(abilities, retry)
+	if err != nil {
+		return nil, nil, fmt.Errorf("applyRetryFiltering failed: %w", err)
+	}
+
+	var (
+		channel         Channel
+		selectedAbility *Ability
+	)
+
 	if len(abilities) > 0 {
 		// Randomly choose one
 		weightSum := uint(0)
@@ -129,17 +284,18 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 		weight := common.GetRandomInt(int(weightSum))
 		for _, ability_ := range abilities {
 			weight -= int(ability_.Weight) + 10
-			//log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
+			// log.Printf("weight: %d, ability weight: %d", weight, *ability_.Weight)
 			if weight <= 0 {
 				channel.Id = ability_.ChannelId
+				selectedAbility = &ability_
 				break
 			}
 		}
 	} else {
-		return nil, nil
+		return nil, nil, errors.New("channel not found")
 	}
 	err = DB.First(&channel, "id = ?", channel.Id).Error
-	return &channel, err
+	return &channel, selectedAbility, err
 }
 
 func (channel *Channel) AddAbilities(tx *gorm.DB) error {

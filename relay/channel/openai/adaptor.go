@@ -9,22 +9,26 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"one-api/common"
-	"one-api/constant"
-	"one-api/dto"
-	"one-api/relay/channel"
-	"one-api/relay/channel/ai360"
-	"one-api/relay/channel/lingyiwanwu"
-	"one-api/relay/channel/minimax"
-	"one-api/relay/channel/openrouter"
-	"one-api/relay/channel/xinference"
-	relaycommon "one-api/relay/common"
-	"one-api/relay/common_handler"
-	relayconstant "one-api/relay/constant"
-	"one-api/service"
-	"one-api/types"
 	"path/filepath"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/ai360"
+	"github.com/QuantumNous/new-api/relay/channel/lingyiwanwu"
+
+	//"github.com/QuantumNous/new-api/relay/channel/minimax"
+	"github.com/QuantumNous/new-api/relay/channel/openrouter"
+	"github.com/QuantumNous/new-api/relay/channel/xinference"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relay/common_handler"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -38,7 +42,11 @@ type Adaptor struct {
 // support OAI models: o1-mini/o3-mini/o4-mini/o1/o3 etc...
 // minimal effort only available in gpt-5
 func parseReasoningEffortFromModelSuffix(model string) (string, string) {
-	effortSuffixes := []string{"-high", "-minimal", "-low", "-medium"}
+	effortSuffixes := []string{"-xhigh", "-high", "-minimal", "-low", "-medium", "-none"}
+	// deepseek-v4 支持 max 推理强度
+	if strings.Contains(strings.ToLower(model), "deepseek") {
+		effortSuffixes = append(effortSuffixes, "-max")
+	}
 	for _, suffix := range effortSuffixes {
 		if strings.HasSuffix(model, suffix) {
 			effort := strings.TrimPrefix(suffix, "-")
@@ -160,14 +168,16 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			requestURL = fmt.Sprintf("/openai/realtime?deployment=%s&api-version=%s", model_, apiVersion)
 		}
 		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURL, info.ChannelType), nil
-	case constant.ChannelTypeMiniMax:
-		return minimax.GetRequestURL(info)
+	//case constant.ChannelTypeMiniMax:
+	//	return minimax.GetRequestURL(info)
 	case constant.ChannelTypeCustom:
 		url := info.ChannelBaseUrl
 		url = strings.Replace(url, "{model}", info.UpstreamModelName, -1)
 		return url, nil
 	default:
-		if info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini {
+		if (info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatGemini) &&
+			info.RelayMode != relayconstant.RelayModeResponses &&
+			info.RelayMode != relayconstant.RelayModeResponsesCompact {
 			return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
 		}
 		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil
@@ -183,6 +193,17 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 	if info.ChannelType == constant.ChannelTypeOpenAI && "" != info.Organization {
 		header.Set("OpenAI-Organization", info.Organization)
 	}
+	// 检查 Header Override 是否已设置 Authorization，如果已设置则跳过默认设置
+	// 这样可以避免在 Header Override 应用时被覆盖（虽然 Header Override 会在之后应用，但这里作为额外保护）
+	hasAuthOverride := false
+	if len(info.HeadersOverride) > 0 {
+		for k := range info.HeadersOverride {
+			if strings.EqualFold(k, "Authorization") {
+				hasAuthOverride = true
+				break
+			}
+		}
+	}
 	if info.RelayMode == relayconstant.RelayModeRealtime {
 		swp := c.Request.Header.Get("Sec-WebSocket-Protocol")
 		if swp != "" {
@@ -197,10 +218,14 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 			//req.Header.Set("Sec-Websocket-Version", c.Request.Header.Get("Sec-Websocket-Version"))
 		} else {
 			header.Set("openai-beta", "realtime=v1")
-			header.Set("Authorization", "Bearer "+info.ApiKey)
+			if !hasAuthOverride {
+				header.Set("Authorization", "Bearer "+info.ApiKey)
+			}
 		}
 	} else {
-		header.Set("Authorization", "Bearer "+info.ApiKey)
+		if !hasAuthOverride {
+			header.Set("Authorization", "Bearer "+info.ApiKey)
+		}
 	}
 	if info.ChannelType == constant.ChannelTypeOpenRouter {
 		header.Set("HTTP-Referer", "https://www.newapi.ai")
@@ -221,7 +246,8 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			request.Usage = json.RawMessage(`{"include":true}`)
 		}
 		// 适配 OpenRouter 的 thinking 后缀
-		if strings.HasSuffix(info.UpstreamModelName, "-thinking") {
+		if !model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) &&
+			strings.HasSuffix(info.UpstreamModelName, "-thinking") {
 			info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
 			request.Model = info.UpstreamModelName
 			if len(request.Reasoning) == 0 {
@@ -301,10 +327,11 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			request.Temperature = nil
 		}
 
+		// gpt-5系列模型适配 归零不再支持的参数
 		if strings.HasPrefix(info.UpstreamModelName, "gpt-5") {
-			if info.UpstreamModelName != "gpt-5-chat-latest" {
-				request.Temperature = nil
-			}
+			request.Temperature = nil
+			request.TopP = 0 // oai 的 top_p 默认值是 1.0，但是为了 omitempty 属性直接不传，这里显式设置为 0
+			request.LogProbs = false
 		}
 
 		// 转换模型推理力度后缀
@@ -315,8 +342,6 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			request.Model = originModel
 		}
 
-		info.ReasoningEffort = request.ReasoningEffort
-
 		// o系列模型developer适配（o1-mini除外）
 		if !strings.HasPrefix(info.UpstreamModelName, "o1-mini") && !strings.HasPrefix(info.UpstreamModelName, "o1-preview") {
 			//修改第一个Message的内容，将system改为developer
@@ -325,6 +350,16 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			}
 		}
 	}
+
+	// 转换模型推理力度后缀（对所有模型生效）
+	if effort, _ := parseReasoningEffortFromModelSuffix(info.UpstreamModelName); effort != "" {
+		request.ReasoningEffort = effort
+	}
+	// 优先使用原始模型推理力度
+	if originEffort, _ := parseReasoningEffortFromModelSuffix(info.OriginModelName); originEffort != "" {
+		request.ReasoningEffort = originEffort
+	}
+	info.ReasoningEffort = request.ReasoningEffort
 
 	return request, nil
 }
@@ -351,27 +386,43 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 
 		writer.WriteField("model", request.Model)
 
-		// 获取所有表单字段
-		formData := c.Request.PostForm
+		formData, err2 := common.ParseMultipartFormReusable(c)
+		if err2 != nil {
+			return nil, fmt.Errorf("error parsing multipart form: %w", err2)
+		}
+
+		// 打印类似 curl 命令格式的信息
+		logger.LogDebug(c.Request.Context(), fmt.Sprintf("--form 'model=\"%s\"'", request.Model))
 
 		// 遍历表单字段并打印输出
-		for key, values := range formData {
+		for key, values := range formData.Value {
 			if key == "model" {
 				continue
 			}
 			for _, value := range values {
 				writer.WriteField(key, value)
+				logger.LogDebug(c.Request.Context(), fmt.Sprintf("--form '%s=\"%s\"'", key, value))
 			}
 		}
 
-		// 添加文件字段
-		file, header, err := c.Request.FormFile("file")
-		if err != nil {
+		// 从 formData 中获取文件
+		fileHeaders := formData.File["file"]
+		if len(fileHeaders) == 0 {
 			return nil, errors.New("file is required")
+		}
+
+		// 使用 formData 中的第一个文件
+		fileHeader := fileHeaders[0]
+		logger.LogDebug(c.Request.Context(), fmt.Sprintf("--form 'file=@\"%s\"' (size: %d bytes, content-type: %s)",
+			fileHeader.Filename, fileHeader.Size, fileHeader.Header.Get("Content-Type")))
+
+		file, err := fileHeader.Open()
+		if err != nil {
+			return nil, fmt.Errorf("error opening audio file: %v", err)
 		}
 		defer file.Close()
 
-		part, err := writer.CreateFormFile("file", header.Filename)
+		part, err := writer.CreateFormFile("file", fileHeader.Filename)
 		if err != nil {
 			return nil, errors.New("create form file failed")
 		}
@@ -382,6 +433,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 		// 关闭 multipart 编写器以设置分界线
 		writer.Close()
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+		logger.LogDebug(c.Request.Context(), fmt.Sprintf("--header 'Content-Type: %s'", writer.FormDataContentType()))
 		return &requestBody, nil
 	}
 }
@@ -538,8 +590,27 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 	//  转换模型推理力度后缀
 	effort, originModel := parseReasoningEffortFromModelSuffix(request.Model)
 	if effort != "" {
-		request.Reasoning.Effort = effort
+		if request.Reasoning == nil {
+			request.Reasoning = &dto.Reasoning{
+				Effort: effort,
+			}
+		} else {
+			request.Reasoning.Effort = effort
+		}
 		request.Model = originModel
+	}
+	// 优先使用原始模型推理力度
+	if originEffort, _ := parseReasoningEffortFromModelSuffix(info.OriginModelName); originEffort != "" {
+		if request.Reasoning == nil {
+			request.Reasoning = &dto.Reasoning{
+				Effort: originEffort,
+			}
+		} else {
+			request.Reasoning.Effort = originEffort
+		}
+	}
+	if info != nil && request.Reasoning != nil && request.Reasoning.Effort != "" {
+		info.ReasoningEffort = request.Reasoning.Effort
 	}
 	return request, nil
 }
@@ -576,6 +647,8 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		} else {
 			usage, err = OaiResponsesHandler(c, info, resp)
 		}
+	case relayconstant.RelayModeResponsesCompact:
+		usage, err = OaiResponsesCompactionHandler(c, resp)
 	default:
 		if info.IsStream {
 			usage, err = OaiStreamHandler(c, info, resp)
@@ -592,8 +665,8 @@ func (a *Adaptor) GetModelList() []string {
 		return ai360.ModelList
 	case constant.ChannelTypeLingYiWanWu:
 		return lingyiwanwu.ModelList
-	case constant.ChannelTypeMiniMax:
-		return minimax.ModelList
+	//case constant.ChannelTypeMiniMax:
+	//	return minimax.ModelList
 	case constant.ChannelTypeXinference:
 		return xinference.ModelList
 	case constant.ChannelTypeOpenRouter:
@@ -609,8 +682,8 @@ func (a *Adaptor) GetChannelName() string {
 		return ai360.ChannelName
 	case constant.ChannelTypeLingYiWanWu:
 		return lingyiwanwu.ChannelName
-	case constant.ChannelTypeMiniMax:
-		return minimax.ChannelName
+	//case constant.ChannelTypeMiniMax:
+	//	return minimax.ChannelName
 	case constant.ChannelTypeXinference:
 		return xinference.ChannelName
 	case constant.ChannelTypeOpenRouter:

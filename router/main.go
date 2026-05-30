@@ -4,9 +4,11 @@ import (
 	"embed"
 	"fmt"
 	"net/http"
-	"one-api/common"
 	"os"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,6 +28,7 @@ func SetRouter(router *gin.Engine, buildFS embed.FS, indexPage []byte) {
 	} else {
 		frontendBaseUrl = strings.TrimSuffix(frontendBaseUrl, "/")
 		router.NoRoute(func(c *gin.Context) {
+			c.Set(middleware.RouteTagKey, "web")
 			c.Redirect(http.StatusMovedPermanently, fmt.Sprintf("%s%s", frontendBaseUrl, c.Request.RequestURI))
 		})
 	}

@@ -1,8 +1,9 @@
 package dto
 
 import (
-	"one-api/types"
 	"strings"
+
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -46,6 +47,12 @@ func (r *EmbeddingRequest) GetTokenCountMeta() *types.TokenCountMeta {
 
 func (r *EmbeddingRequest) IsStream(c *gin.Context) bool {
 	return false
+}
+
+func (r *EmbeddingRequest) SetModelName(modelName string) {
+	if modelName != "" {
+		r.Model = modelName
+	}
 }
 
 func (r *EmbeddingRequest) ParseInput() []string {

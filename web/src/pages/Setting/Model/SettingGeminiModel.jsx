@@ -39,19 +39,23 @@ const GEMINI_VERSION_EXAMPLE = {
   default: 'v1beta',
 };
 
+const DEFAULT_GEMINI_INPUTS = {
+  'gemini.safety_settings': '',
+  'gemini.version_settings': '',
+  'gemini.supported_imagine_models': '',
+  'gemini.thinking_adapter_enabled': false,
+  'gemini.thinking_adapter_budget_tokens_percentage': 0.6,
+  'gemini.function_call_thought_signature_enabled': true,
+  'gemini.remove_function_response_id_enabled': true,
+};
+
 export default function SettingGeminiModel(props) {
   const { t } = useTranslation();
 
   const [loading, setLoading] = useState(false);
-  const [inputs, setInputs] = useState({
-    'gemini.safety_settings': '',
-    'gemini.version_settings': '',
-    'gemini.supported_imagine_models': '',
-    'gemini.thinking_adapter_enabled': false,
-    'gemini.thinking_adapter_budget_tokens_percentage': 0.6,
-  });
+  const [inputs, setInputs] = useState(DEFAULT_GEMINI_INPUTS);
   const refForm = useRef();
-  const [inputsRow, setInputsRow] = useState(inputs);
+  const [inputsRow, setInputsRow] = useState(DEFAULT_GEMINI_INPUTS);
 
   async function onSubmit() {
     await refForm.current
@@ -92,9 +96,9 @@ export default function SettingGeminiModel(props) {
   }
 
   useEffect(() => {
-    const currentInputs = {};
+    const currentInputs = { ...DEFAULT_GEMINI_INPUTS };
     for (let key in props.options) {
-      if (Object.keys(inputs).includes(key)) {
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_GEMINI_INPUTS, key)) {
         currentInputs[key] = props.options[key];
       }
     }
@@ -167,12 +171,59 @@ export default function SettingGeminiModel(props) {
               </Col>
             </Row>
             <Row>
+              <Col span={16}>
+                <Form.Switch
+                  label={t('启用FunctionCall思维签名填充')}
+                  field={'gemini.function_call_thought_signature_enabled'}
+                  extraText={t(
+                    '仅为使用OpenAI格式的Gemini/Vertex渠道填充thoughtSignature',
+                  )}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      'gemini.function_call_thought_signature_enabled': value,
+                    })
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
+              <Col span={16}>
+                <Form.Switch
+                  label={t('移除 functionResponse.id 字段')}
+                  field={'gemini.remove_function_response_id_enabled'}
+                  extraText={t(
+                    'Vertex AI 不支持 functionResponse.id 字段，开启后将自动移除该字段',
+                  )}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      'gemini.remove_function_response_id_enabled': value,
+                    })
+                  }
+                />
+              </Col>
+            </Row>
+            <Row>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.TextArea
                   field={'gemini.supported_imagine_models'}
                   label={t('支持的图像模型')}
-                  placeholder={t('例如：') + '\n' + JSON.stringify(['gemini-2.0-flash-exp-image-generation'], null, 2)}
-                  onChange={(value) => setInputs({ ...inputs, 'gemini.supported_imagine_models': value })}
+                  placeholder={
+                    t('例如：') +
+                    '\n' +
+                    JSON.stringify(
+                      ['gemini-2.0-flash-exp-image-generation'],
+                      null,
+                      2,
+                    )
+                  }
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      'gemini.supported_imagine_models': value,
+                    })
+                  }
                   trigger='blur'
                   stopValidateWithError
                   rules={[
@@ -191,9 +242,9 @@ export default function SettingGeminiModel(props) {
               <Col span={16}>
                 <Text>
                   {t(
-                    "和Claude不同，默认情况下Gemini的思考模型会自动决定要不要思考，就算不开启适配模型也可以正常使用，" +
-                    "如果您需要计费，推荐设置无后缀模型价格按思考价格设置。" +
-                    "支持使用 gemini-2.5-pro-preview-06-05-thinking-128 格式来精确传递思考预算。"
+                    '和Claude不同，默认情况下Gemini的思考模型会自动决定要不要思考，就算不开启适配模型也可以正常使用，' +
+                      '如果您需要计费，推荐设置无后缀模型价格按思考价格设置。' +
+                      '支持使用 gemini-2.5-pro-preview-06-05-thinking-128 格式来精确传递思考预算。',
                   )}
                 </Text>
               </Col>
@@ -203,7 +254,9 @@ export default function SettingGeminiModel(props) {
                 <Form.Switch
                   label={t('启用Gemini思考后缀适配')}
                   field={'gemini.thinking_adapter_enabled'}
-                  extraText={t('适配 -thinking、-thinking-预算数字 和 -nothinking 后缀')}
+                  extraText={t(
+                    '适配 -thinking、-thinking-预算数字 和 -nothinking 后缀',
+                  )}
                   onChange={(value) =>
                     setInputs({
                       ...inputs,

@@ -26,7 +26,7 @@ import {
   isAdmin,
   showError,
   showSuccess,
-  timestamp2string
+  timestamp2string,
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -40,6 +40,7 @@ export const useTaskLogsData = () => {
     FINISH_TIME: 'finish_time',
     DURATION: 'duration',
     CHANNEL: 'channel',
+    USERNAME: 'username',
     PLATFORM: 'platform',
     TYPE: 'type',
     TASK_ID: 'task_id',
@@ -59,7 +60,9 @@ export const useTaskLogsData = () => {
   // User and admin
   const isAdminUser = isAdmin();
   // Role-specific storage key to prevent different roles from overwriting each other
-  const STORAGE_KEY = isAdminUser ? 'task-logs-table-columns-admin' : 'task-logs-table-columns-user';
+  const STORAGE_KEY = isAdminUser
+    ? 'task-logs-table-columns-admin'
+    : 'task-logs-table-columns-user';
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,6 +71,14 @@ export const useTaskLogsData = () => {
   // 新增：视频预览弹窗状态
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [videoUrl, setVideoUrl] = useState('');
+
+  // Audio preview modal state
+  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
+  const [audioClips, setAudioClips] = useState([]);
+
+  // User info modal state
+  const [showUserInfo, setShowUserInfoModal] = useState(false);
+  const [userInfoData, setUserInfoData] = useState(null);
 
   // Form state
   const [formApi, setFormApi] = useState(null);
@@ -79,7 +90,7 @@ export const useTaskLogsData = () => {
     task_id: '',
     dateRange: [
       timestamp2string(zeroNow.getTime() / 1000),
-      timestamp2string(now.getTime() / 1000 + 3600)
+      timestamp2string(now.getTime() / 1000 + 3600),
     ],
   };
 
@@ -102,6 +113,7 @@ export const useTaskLogsData = () => {
         // For non-admin users, force-hide admin-only columns (does not touch admin settings)
         if (!isAdminUser) {
           merged[COLUMN_KEYS.CHANNEL] = false;
+          merged[COLUMN_KEYS.USERNAME] = false;
         }
         setVisibleColumns(merged);
       } catch (e) {
@@ -120,6 +132,7 @@ export const useTaskLogsData = () => {
       [COLUMN_KEYS.FINISH_TIME]: true,
       [COLUMN_KEYS.DURATION]: true,
       [COLUMN_KEYS.CHANNEL]: isAdminUser,
+      [COLUMN_KEYS.USERNAME]: isAdminUser,
       [COLUMN_KEYS.PLATFORM]: true,
       [COLUMN_KEYS.TYPE]: true,
       [COLUMN_KEYS.TASK_ID]: true,
@@ -149,7 +162,10 @@ export const useTaskLogsData = () => {
     const updatedColumns = {};
 
     allKeys.forEach((key) => {
-      if (key === COLUMN_KEYS.CHANNEL && !isAdminUser) {
+      if (
+        (key === COLUMN_KEYS.CHANNEL || key === COLUMN_KEYS.USERNAME) &&
+        !isAdminUser
+      ) {
         updatedColumns[key] = false;
       } else {
         updatedColumns[key] = checked;
@@ -174,7 +190,11 @@ export const useTaskLogsData = () => {
     let start_timestamp = timestamp2string(zeroNow.getTime() / 1000);
     let end_timestamp = timestamp2string(now.getTime() / 1000 + 3600);
 
-    if (formValues.dateRange && Array.isArray(formValues.dateRange) && formValues.dateRange.length === 2) {
+    if (
+      formValues.dateRange &&
+      Array.isArray(formValues.dateRange) &&
+      formValues.dateRange.length === 2
+    ) {
       start_timestamp = formValues.dateRange[0];
       end_timestamp = formValues.dateRange[1];
     }
@@ -208,7 +228,8 @@ export const useTaskLogsData = () => {
   // Load logs function
   const loadLogs = async (page = 1, size = pageSize) => {
     setLoading(true);
-    const { channel_id, task_id, start_timestamp, end_timestamp } = getFormValues();
+    const { channel_id, task_id, start_timestamp, end_timestamp } =
+      getFormValues();
     let localStartTimestamp = parseInt(Date.parse(start_timestamp) / 1000);
     let localEndTimestamp = parseInt(Date.parse(end_timestamp) / 1000);
     let url = isAdminUser
@@ -260,9 +281,30 @@ export const useTaskLogsData = () => {
     setIsVideoModalOpen(true);
   };
 
+  const openAudioModal = (clips) => {
+    setAudioClips(clips);
+    setIsAudioModalOpen(true);
+  };
+
+  // User info function
+  const showUserInfoFunc = async (userId) => {
+    if (!isAdminUser) {
+      return;
+    }
+    const res = await API.get(`/api/user/${userId}`);
+    const { success, message, data } = res.data;
+    if (success) {
+      setUserInfoData(data);
+      setShowUserInfoModal(true);
+    } else {
+      showError(message);
+    }
+  };
+
   // Initialize data
   useEffect(() => {
-    const localPageSize = parseInt(localStorage.getItem('task-page-size')) || ITEMS_PER_PAGE;
+    const localPageSize =
+      parseInt(localStorage.getItem('task-page-size')) || ITEMS_PER_PAGE;
     setPageSize(localPageSize);
     loadLogs(1, localPageSize).then();
   }, []);
@@ -286,6 +328,11 @@ export const useTaskLogsData = () => {
     setIsVideoModalOpen,
     videoUrl,
 
+    // Audio preview modal
+    isAudioModalOpen,
+    setIsAudioModalOpen,
+    audioClips,
+
     // Form state
     formApi,
     setFormApi,
@@ -305,6 +352,12 @@ export const useTaskLogsData = () => {
     compactMode,
     setCompactMode,
 
+    // User info modal
+    showUserInfo,
+    setShowUserInfoModal,
+    userInfoData,
+    showUserInfoFunc,
+
     // Functions
     loadLogs,
     handlePageChange,
@@ -312,11 +365,12 @@ export const useTaskLogsData = () => {
     refresh,
     copyText,
     openContentModal,
-    openVideoModal, // 新增
+    openVideoModal,
+    openAudioModal,
     enrichLogs,
     syncPageData,
 
     // Translation
     t,
   };
-}; 
+};

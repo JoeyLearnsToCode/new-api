@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import HeaderBar from './HeaderBar';
+import HeaderBar from './headerbar';
 import { Layout } from '@douyinfe/semi-ui';
 import SiderBar from './SiderBar';
 import App from '../../App';
@@ -27,7 +27,13 @@ import React, { useContext, useEffect, useState } from 'react';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useTranslation } from 'react-i18next';
-import { API, getLogo, getSystemName, showError, setStatusData } from '../../helpers';
+import {
+  API,
+  getLogo,
+  getSystemName,
+  showError,
+  setStatusData,
+} from '../../helpers';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
@@ -42,9 +48,22 @@ const PageLayout = () => {
   const { i18n } = useTranslation();
   const location = useLocation();
 
-  const shouldHideFooter = location.pathname.startsWith('/console') || location.pathname === '/pricing';
+  const cardProPages = [
+    '/console/channel',
+    '/console/log',
+    '/console/redemption',
+    '/console/user',
+    '/console/token',
+    '/console/midjourney',
+    '/console/task',
+    '/console/models',
+    '/pricing',
+  ];
 
-  const shouldInnerPadding = location.pathname.includes('/console') &&
+  const shouldHideFooter = cardProPages.includes(location.pathname);
+
+  const shouldInnerPadding =
+    location.pathname.includes('/console') &&
     !location.pathname.startsWith('/console/chat') &&
     location.pathname !== '/console/playground';
 
@@ -102,8 +121,8 @@ const PageLayout = () => {
 
   return (
     <Layout
+      className='app-layout'
       style={{
-        height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         overflow: isMobile ? 'visible' : 'hidden',
@@ -120,7 +139,10 @@ const PageLayout = () => {
           zIndex: 100,
         }}
       >
-        <HeaderBar onMobileMenuToggle={() => setDrawerOpen(prev => !prev)} drawerOpen={drawerOpen} />
+        <HeaderBar
+          onMobileMenuToggle={() => setDrawerOpen((prev) => !prev)}
+          drawerOpen={drawerOpen}
+        />
       </Header>
       <Layout
         style={{
@@ -131,6 +153,7 @@ const PageLayout = () => {
       >
         {showSider && (
           <Sider
+            className='app-sider'
             style={{
               position: 'fixed',
               left: 0,
@@ -138,16 +161,23 @@ const PageLayout = () => {
               zIndex: 99,
               border: 'none',
               paddingRight: '0',
-              height: 'calc(100vh - 64px)',
               width: 'var(--sidebar-current-width)',
             }}
           >
-            <SiderBar onNavigate={() => { if (isMobile) setDrawerOpen(false); }} />
+            <SiderBar
+              onNavigate={() => {
+                if (isMobile) setDrawerOpen(false);
+              }}
+            />
           </Sider>
         )}
         <Layout
           style={{
-            marginLeft: isMobile ? '0' : showSider ? 'var(--sidebar-current-width)' : '0',
+            marginLeft: isMobile
+              ? '0'
+              : showSider
+                ? 'var(--sidebar-current-width)'
+                : '0',
             flex: '1 1 auto',
             display: 'flex',
             flexDirection: 'column',

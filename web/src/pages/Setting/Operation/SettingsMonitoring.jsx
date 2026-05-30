@@ -25,9 +25,10 @@ import {
   showError,
   showSuccess,
   showWarning,
-  verifyJSON,
+  parseHttpStatusCodeRules,
 } from '../../../helpers';
 import { useTranslation } from 'react-i18next';
+import HttpStatusCodeRulesInput from '../../../components/settings/HttpStatusCodeRulesInput';
 
 export default function SettingsMonitoring(props) {
   const { t } = useTranslation();
@@ -38,19 +39,50 @@ export default function SettingsMonitoring(props) {
     AutomaticDisableChannelEnabled: false,
     AutomaticEnableChannelEnabled: false,
     AutomaticDisableKeywords: '',
+    AutomaticDisableStatusCodes: '401',
+    AutomaticRetryStatusCodes:
+      '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
+    'monitor_setting.auto_test_channel_enabled': false,
+    'monitor_setting.auto_test_channel_minutes': 10,
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
+  const parsedAutoDisableStatusCodes = parseHttpStatusCodeRules(
+    inputs.AutomaticDisableStatusCodes || '',
+  );
+  const parsedAutoRetryStatusCodes = parseHttpStatusCodeRules(
+    inputs.AutomaticRetryStatusCodes || '',
+  );
 
   function onSubmit() {
     const updateArray = compareObjects(inputs, inputsRow);
     if (!updateArray.length) return showWarning(t('你似乎并没有修改什么'));
+    if (!parsedAutoDisableStatusCodes.ok) {
+      const details =
+        parsedAutoDisableStatusCodes.invalidTokens &&
+        parsedAutoDisableStatusCodes.invalidTokens.length > 0
+          ? `: ${parsedAutoDisableStatusCodes.invalidTokens.join(', ')}`
+          : '';
+      return showError(`${t('自动禁用状态码格式不正确')}${details}`);
+    }
+    if (!parsedAutoRetryStatusCodes.ok) {
+      const details =
+        parsedAutoRetryStatusCodes.invalidTokens &&
+        parsedAutoRetryStatusCodes.invalidTokens.length > 0
+          ? `: ${parsedAutoRetryStatusCodes.invalidTokens.join(', ')}`
+          : '';
+      return showError(`${t('自动重试状态码格式不正确')}${details}`);
+    }
     const requestQueue = updateArray.map((item) => {
       let value = '';
       if (typeof inputs[item.key] === 'boolean') {
         value = String(inputs[item.key]);
       } else {
-        value = inputs[item.key];
+        const normalizedMap = {
+          AutomaticDisableStatusCodes: parsedAutoDisableStatusCodes.normalized,
+          AutomaticRetryStatusCodes: parsedAutoRetryStatusCodes.normalized,
+        };
+        value = normalizedMap[item.key] ?? inputs[item.key];
       }
       return API.put('/api/option/', {
         key: item.key,
@@ -98,6 +130,41 @@ export default function SettingsMonitoring(props) {
           style={{ marginBottom: 15 }}
         >
           <Form.Section text={t('监控设置')}>
+            <Row gutter={16}>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.Switch
+                  field={'monitor_setting.auto_test_channel_enabled'}
+                  label={t('定时测试所有通道')}
+                  size='default'
+                  checkedText='｜'
+                  uncheckedText='〇'
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      'monitor_setting.auto_test_channel_enabled': value,
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                <Form.InputNumber
+                  label={t('自动测试所有通道间隔时间')}
+                  step={1}
+                  min={1}
+                  suffix={t('分钟')}
+                  extraText={t('每隔多少分钟测试一次所有通道')}
+                  placeholder={''}
+                  field={'monitor_setting.auto_test_channel_minutes'}
+                  onChange={(value) =>
+                    setInputs({
+                      ...inputs,
+                      'monitor_setting.auto_test_channel_minutes':
+                        parseInt(value),
+                    })
+                  }
+                />
+              </Col>
+            </Row>
             <Row gutter={16}>
               <Col xs={24} sm={12} md={8} lg={8} xl={8}>
                 <Form.InputNumber
@@ -170,6 +237,32 @@ export default function SettingsMonitoring(props) {
             </Row>
             <Row gutter={16}>
               <Col xs={24} sm={16}>
+                <HttpStatusCodeRulesInput
+                  label={t('自动禁用状态码')}
+                  placeholder={t('例如：401, 403, 429, 500-599')}
+                  extraText={t(
+                    '支持填写单个状态码或范围（含首尾），使用逗号分隔',
+                  )}
+                  field={'AutomaticDisableStatusCodes'}
+                  onChange={(value) =>
+                    setInputs({ ...inputs, AutomaticDisableStatusCodes: value })
+                  }
+                  parsed={parsedAutoDisableStatusCodes}
+                  invalidText={t('自动禁用状态码格式不正确')}
+                />
+                <HttpStatusCodeRulesInput
+                  label={t('自动重试状态码')}
+                  placeholder={t('例如：401, 403, 429, 500-599')}
+                  extraText={t(
+                    '支持填写单个状态码或范围（含首尾），使用逗号分隔；504 和 524 始终不重试，不受此处配置影响',
+                  )}
+                  field={'AutomaticRetryStatusCodes'}
+                  onChange={(value) =>
+                    setInputs({ ...inputs, AutomaticRetryStatusCodes: value })
+                  }
+                  parsed={parsedAutoRetryStatusCodes}
+                  invalidText={t('自动重试状态码格式不正确')}
+                />
                 <Form.TextArea
                   label={t('自动禁用关键词')}
                   placeholder={t('一行一个，不区分大小写')}

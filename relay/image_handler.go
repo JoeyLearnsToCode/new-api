@@ -2,34 +2,38 @@ package relay
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"one-api/common"
-	"one-api/dto"
-	relaycommon "one-api/relay/common"
-	relayconstant "one-api/relay/constant"
-	"one-api/relay/helper"
-	"one-api/service"
-	"one-api/setting/model_setting"
-	"one-api/types"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relay/helper"
+	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
 
 func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.NewAPIError) {
-
 	info.InitChannelMeta(c)
 
-	imageRequest, ok := info.Request.(*dto.ImageRequest)
-
+	imageReq, ok := info.Request.(*dto.ImageRequest)
 	if !ok {
-		common.FatalLog(fmt.Sprintf("invalid request type, expected dto.ImageRequest, got %T", info.Request))
+		return types.NewErrorWithStatusCode(fmt.Errorf("invalid request type, expected dto.ImageRequest, got %T", info.Request), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
 
-	err := helper.ModelMappedHelper(c, info, imageRequest)
+	request, err := common.DeepCopy(imageReq)
+	if err != nil {
+		return types.NewError(fmt.Errorf("failed to copy request to ImageRequest: %w", err), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+
+	err = helper.ModelMappedHelper(c, info, request)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
@@ -43,34 +47,37 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	var requestBody io.Reader
 
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
-		body, err := common.GetRequestBody(c)
+		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 		}
-		requestBody = bytes.NewBuffer(body)
+		requestBody = common.ReaderOnly(storage)
 	} else {
-		convertedRequest, err := adaptor.ConvertImageRequest(c, info, *imageRequest)
+		convertedRequest, err := adaptor.ConvertImageRequest(c, info, *request)
 		if err != nil {
 			return types.NewError(err, types.ErrorCodeConvertRequestFailed)
 		}
-		if info.RelayMode == relayconstant.RelayModeImagesEdits {
+		relaycommon.AppendRequestConversionFromRequest(info, convertedRequest)
+
+		switch convertedRequest.(type) {
+		case *bytes.Buffer:
 			requestBody = convertedRequest.(io.Reader)
-		} else {
-			jsonData, err := json.Marshal(convertedRequest)
+		default:
+			jsonData, err := common.Marshal(convertedRequest)
 			if err != nil {
 				return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 			}
 
 			// apply param override
 			if len(info.ParamOverride) > 0 {
-				jsonData, err = relaycommon.ApplyParamOverride(jsonData, info.ParamOverride)
+				jsonData, err = relaycommon.ApplyParamOverride(jsonData, info.ParamOverride, relaycommon.BuildParamOverrideContext(info))
 				if err != nil {
 					return types.NewError(err, types.ErrorCodeChannelParamOverrideInvalid, types.ErrOptionWithSkipRetry())
 				}
 			}
 
 			if common.DebugEnabled {
-				println(fmt.Sprintf("image request body: %s", string(jsonData)))
+				logger.LogDebug(c, fmt.Sprintf("image request body: %s", string(jsonData)))
 			}
 			requestBody = bytes.NewBuffer(jsonData)
 		}
@@ -87,10 +94,15 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		httpResp = resp.(*http.Response)
 		info.IsStream = info.IsStream || strings.HasPrefix(httpResp.Header.Get("Content-Type"), "text/event-stream")
 		if httpResp.StatusCode != http.StatusOK {
-			newAPIError = service.RelayErrorHandler(httpResp, false)
-			// reset status code 重置状态码
-			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
-			return newAPIError
+			if httpResp.StatusCode == http.StatusCreated && info.ApiType == constant.APITypeReplicate {
+				// replicate channel returns 201 Created when using Prefer: wait, treat it as success.
+				httpResp.StatusCode = http.StatusOK
+			} else {
+				newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, false)
+				// reset status code 重置状态码
+				service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+				return newAPIError
+			}
 		}
 	}
 
@@ -102,23 +114,29 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	if usage.(*dto.Usage).TotalTokens == 0 {
-		usage.(*dto.Usage).TotalTokens = int(imageRequest.N)
+		usage.(*dto.Usage).TotalTokens = int(request.N)
 	}
 	if usage.(*dto.Usage).PromptTokens == 0 {
-		usage.(*dto.Usage).PromptTokens = int(imageRequest.N)
+		usage.(*dto.Usage).PromptTokens = int(request.N)
 	}
 
 	quality := "standard"
-	if imageRequest.Quality == "hd" {
+	if request.Quality == "hd" {
 		quality = "hd"
 	}
 
-	var logContent string
+	var logContent []string
 
-	if len(imageRequest.Size) > 0 {
-		logContent = fmt.Sprintf("大小 %s, 品质 %s", imageRequest.Size, quality)
+	if len(request.Size) > 0 {
+		logContent = append(logContent, fmt.Sprintf("大小 %s", request.Size))
+	}
+	if len(quality) > 0 {
+		logContent = append(logContent, fmt.Sprintf("品质 %s", quality))
+	}
+	if request.N > 0 {
+		logContent = append(logContent, fmt.Sprintf("生成数量 %d", request.N))
 	}
 
-	postConsumeQuota(c, info, usage.(*dto.Usage), logContent)
+	postConsumeQuota(c, info, usage.(*dto.Usage), logContent...)
 	return nil
 }

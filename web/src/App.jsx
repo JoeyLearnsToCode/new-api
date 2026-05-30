@@ -17,8 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { lazy, Suspense } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import React, { lazy, Suspense, useContext, useMemo } from 'react';
+import { Route, Routes, useLocation, useParams } from 'react-router-dom';
 import Loading from './components/common/ui/Loading';
 import User from './pages/User';
 import { AuthRedirect, PrivateRoute, AdminRoute } from './helpers';
@@ -27,6 +27,7 @@ import LoginForm from './components/auth/LoginForm';
 import NotFound from './pages/NotFound';
 import Forbidden from './pages/Forbidden';
 import Setting from './pages/Setting';
+import { StatusContext } from './context/Status';
 
 import PasswordResetForm from './components/auth/PasswordResetForm';
 import PasswordResetConfirm from './components/auth/PasswordResetConfirm';
@@ -41,7 +42,9 @@ import Midjourney from './pages/Midjourney';
 import Pricing from './pages/Pricing';
 import Task from './pages/Task';
 import ModelPage from './pages/Model';
+import ModelDeploymentPage from './pages/ModelDeployment';
 import Playground from './pages/Playground';
+import Subscription from './pages/Subscription';
 import OAuth2Callback from './components/auth/OAuth2Callback';
 import PersonalSetting from './components/settings/PersonalSetting';
 import Setup from './pages/Setup';
@@ -50,9 +53,39 @@ import SetupCheck from './components/layout/SetupCheck';
 const Home = lazy(() => import('./pages/Home'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const About = lazy(() => import('./pages/About'));
+const UserAgreement = lazy(() => import('./pages/UserAgreement'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+
+function DynamicOAuth2Callback() {
+  const { provider } = useParams();
+  return <OAuth2Callback type={provider} />;
+}
 
 function App() {
   const location = useLocation();
+  const [statusState] = useContext(StatusContext);
+
+  // 获取模型广场权限配置
+  const pricingRequireAuth = useMemo(() => {
+    const headerNavModulesConfig = statusState?.status?.HeaderNavModules;
+    if (headerNavModulesConfig) {
+      try {
+        const modules = JSON.parse(headerNavModulesConfig);
+
+        // 处理向后兼容性：如果pricing是boolean，默认不需要登录
+        if (typeof modules.pricing === 'boolean') {
+          return false; // 默认不需要登录鉴权
+        }
+
+        // 如果是对象格式，使用requireAuth配置
+        return modules.pricing?.requireAuth === true;
+      } catch (error) {
+        console.error('解析顶栏模块配置失败:', error);
+        return false; // 默认不需要登录
+      }
+    }
+    return false; // 默认不需要登录
+  }, [statusState?.status?.HeaderNavModules]);
 
   return (
     <SetupCheck>
@@ -73,15 +106,28 @@ function App() {
             </Suspense>
           }
         />
-        <Route
-          path='/forbidden'
-          element={<Forbidden />}
-        />
+        <Route path='/forbidden' element={<Forbidden />} />
         <Route
           path='/console/models'
           element={
             <AdminRoute>
               <ModelPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/deployment'
+          element={
+            <AdminRoute>
+              <ModelDeploymentPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path='/console/subscription'
+          element={
+            <AdminRoute>
+              <Subscription />
             </AdminRoute>
           }
         />
@@ -170,6 +216,14 @@ function App() {
           }
         />
         <Route
+          path='/oauth/discord'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <OAuth2Callback type='discord'></OAuth2Callback>
+            </Suspense>
+          }
+        />
+        <Route
           path='/oauth/oidc'
           element={
             <Suspense fallback={<Loading></Loading>}>
@@ -182,6 +236,14 @@ function App() {
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
               <OAuth2Callback type='linuxdo'></OAuth2Callback>
+            </Suspense>
+          }
+        />
+        <Route
+          path='/oauth/:provider'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <DynamicOAuth2Callback />
             </Suspense>
           }
         />
@@ -256,9 +318,20 @@ function App() {
         <Route
           path='/pricing'
           element={
-            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
-              <Pricing />
-            </Suspense>
+            pricingRequireAuth ? (
+              <PrivateRoute>
+                <Suspense
+                  fallback={<Loading></Loading>}
+                  key={location.pathname}
+                >
+                  <Pricing />
+                </Suspense>
+              </PrivateRoute>
+            ) : (
+              <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+                <Pricing />
+              </Suspense>
+            )
           }
         />
         <Route
@@ -266,6 +339,22 @@ function App() {
           element={
             <Suspense fallback={<Loading></Loading>} key={location.pathname}>
               <About />
+            </Suspense>
+          }
+        />
+        <Route
+          path='/user-agreement'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <UserAgreement />
+            </Suspense>
+          }
+        />
+        <Route
+          path='/privacy-policy'
+          element={
+            <Suspense fallback={<Loading></Loading>} key={location.pathname}>
+              <PrivacyPolicy />
             </Suspense>
           }
         />

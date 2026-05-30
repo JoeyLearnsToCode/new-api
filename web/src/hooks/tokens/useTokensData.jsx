@@ -25,6 +25,7 @@ import {
   copy,
   showError,
   showSuccess,
+  encodeToBase64,
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
@@ -39,6 +40,7 @@ export const useTokensData = (openFluentNotification) => {
   const [tokenCount, setTokenCount] = useState(0);
   const [pageSize, setPageSize] = useState(ITEMS_PER_PAGE);
   const [searching, setSearching] = useState(false);
+  const [searchMode, setSearchMode] = useState(false); // 是否处于搜索结果视图
 
   // Selection state
   const [selectedKeys, setSelectedKeys] = useState([]);
@@ -90,6 +92,7 @@ export const useTokensData = (openFluentNotification) => {
   // Load tokens function
   const loadTokens = async (page = 1, size = pageSize) => {
     setLoading(true);
+    setSearchMode(false);
     const res = await API.get(`/api/token/?p=${page}&size=${size}`);
     const { success, message, data } = res.data;
     if (success) {
@@ -139,9 +142,9 @@ export const useTokensData = (openFluentNotification) => {
         id: 'new-api',
         baseUrl: serverAddress,
         apiKey: 'sk-' + record.key,
-      }
+      };
       let encodedConfig = encodeURIComponent(
-        btoa(JSON.stringify(cherryConfig))
+        encodeToBase64(JSON.stringify(cherryConfig)),
       );
       url = url.replaceAll('{cherryConfig}', encodedConfig);
     } else {
@@ -173,7 +176,7 @@ export const useTokensData = (openFluentNotification) => {
     }
     const { success, message } = res.data;
     if (success) {
-      showSuccess('操作成功完成！');
+      showSuccess(t('操作成功完成！'));
       let token = res.data.data;
       let newTokens = [...tokens];
       if (action !== 'delete') {
@@ -187,21 +190,25 @@ export const useTokensData = (openFluentNotification) => {
   };
 
   // Search tokens function
-  const searchTokens = async () => {
+  const searchTokens = async (page = 1, size = pageSize) => {
+    const normalizedPage = Number.isInteger(page) && page > 0 ? page : 1;
+    const normalizedSize =
+      Number.isInteger(size) && size > 0 ? size : pageSize;
+
     const { searchKeyword, searchToken } = getFormValues();
     if (searchKeyword === '' && searchToken === '') {
+      setSearchMode(false);
       await loadTokens(1);
       return;
     }
     setSearching(true);
     const res = await API.get(
-      `/api/token/search?keyword=${searchKeyword}&token=${searchToken}`,
+      `/api/token/search?keyword=${encodeURIComponent(searchKeyword)}&token=${encodeURIComponent(searchToken)}&p=${normalizedPage}&size=${normalizedSize}`,
     );
     const { success, message, data } = res.data;
     if (success) {
-      setTokens(data);
-      setTokenCount(data.length);
-      setActivePage(1);
+      setSearchMode(true);
+      syncPageData(data);
     } else {
       showError(message);
     }
@@ -225,18 +232,26 @@ export const useTokensData = (openFluentNotification) => {
 
   // Page handlers
   const handlePageChange = (page) => {
-    loadTokens(page, pageSize).then();
+    if (searchMode) {
+      searchTokens(page, pageSize).then();
+    } else {
+      loadTokens(page, pageSize).then();
+    }
   };
 
   const handlePageSizeChange = async (size) => {
     setPageSize(size);
-    await loadTokens(1, size);
+    if (searchMode) {
+      await searchTokens(1, size);
+    } else {
+      await loadTokens(1, size);
+    }
   };
 
   // Row selection handlers
   const rowSelection = {
-    onSelect: (record, selected) => { },
-    onSelectAll: (selected, selectedRows) => { },
+    onSelect: (record, selected) => {},
+    onSelectAll: (selected, selectedRows) => {},
     onChange: (selectedRowKeys, selectedRows) => {
       setSelectedKeys(selectedRows);
     },
@@ -296,9 +311,9 @@ export const useTokensData = (openFluentNotification) => {
       icon: null,
       content: t('请选择你的复制方式'),
       footer: (
-        <div className="flex gap-2">
+        <div className='flex gap-2'>
           <button
-            className="px-3 py-1 bg-gray-200 rounded"
+            className='px-3 py-1 bg-gray-200 rounded'
             onClick={async () => {
               let content = '';
               for (let i = 0; i < selectedKeys.length; i++) {
@@ -312,7 +327,7 @@ export const useTokensData = (openFluentNotification) => {
             {t('名称+密钥')}
           </button>
           <button
-            className="px-3 py-1 bg-blue-500 text-white rounded"
+            className='px-3 py-1 bg-blue-500 text-white rounded'
             onClick={async () => {
               let content = '';
               for (let i = 0; i < selectedKeys.length; i++) {
@@ -389,4 +404,4 @@ export const useTokensData = (openFluentNotification) => {
     // Translation
     t,
   };
-}; 
+};

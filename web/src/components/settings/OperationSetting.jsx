@@ -20,11 +20,15 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState } from 'react';
 import { Card, Spin } from '@douyinfe/semi-ui';
 import SettingsGeneral from '../../pages/Setting/Operation/SettingsGeneral';
+import SettingsHeaderNavModules from '../../pages/Setting/Operation/SettingsHeaderNavModules';
+import SettingsSidebarModulesAdmin from '../../pages/Setting/Operation/SettingsSidebarModulesAdmin';
 import SettingsSensitiveWords from '../../pages/Setting/Operation/SettingsSensitiveWords';
 import SettingsLog from '../../pages/Setting/Operation/SettingsLog';
 import SettingsMonitoring from '../../pages/Setting/Operation/SettingsMonitoring';
 import SettingsCreditLimit from '../../pages/Setting/Operation/SettingsCreditLimit';
+import SettingsCheckin from '../../pages/Setting/Operation/SettingsCheckin';
 import { API, showError, toBoolean } from '../../helpers';
+import SettingsExportImport from './SettingsExportImport';
 
 const OperationSetting = () => {
   let [inputs, setInputs] = useState({
@@ -33,6 +37,7 @@ const OperationSetting = () => {
     PreConsumedQuota: 0,
     QuotaForInviter: 0,
     QuotaForInvitee: 0,
+    'quota_setting.enable_free_model_pre_consume': true,
 
     /* 通用设置 */
     TopUpLink: '',
@@ -40,11 +45,17 @@ const OperationSetting = () => {
     QuotaPerUnit: 0,
     USDExchangeRate: 0,
     RetryTimes: 0,
-    DisplayInCurrencyEnabled: false,
+    'general_setting.quota_display_type': 'USD',
     DisplayTokenStatEnabled: false,
     DefaultCollapseSidebar: false,
     DemoSiteEnabled: false,
     SelfUseModeEnabled: false,
+
+    /* 顶栏模块管理 */
+    HeaderNavModules: '',
+
+    /* 左侧边栏模块管理（管理员） */
+    SidebarModulesAdmin: '',
 
     /* 敏感词设置 */
     CheckSensitiveEnabled: false,
@@ -60,6 +71,17 @@ const OperationSetting = () => {
     AutomaticDisableChannelEnabled: false,
     AutomaticEnableChannelEnabled: false,
     AutomaticDisableKeywords: '',
+    AutomaticDisableStatusCodes: '401',
+    AutomaticRetryStatusCodes:
+      '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
+    'monitor_setting.auto_test_channel_enabled': false,
+    'monitor_setting.auto_test_channel_minutes': 10 /* 签到设置 */,
+    'checkin_setting.enabled': false,
+    'checkin_setting.min_quota': 1000,
+    'checkin_setting.max_quota': 10000,
+
+    /* 令牌设置 */
+    'token_setting.max_user_tokens': 1000,
   });
 
   let [loading, setLoading] = useState(false);
@@ -70,10 +92,7 @@ const OperationSetting = () => {
     if (success) {
       let newInputs = {};
       data.forEach((item) => {
-        if (
-          item.key.endsWith('Enabled') ||
-          ['DefaultCollapseSidebar'].includes(item.key)
-        ) {
+        if (typeof inputs[item.key] === 'boolean') {
           newInputs[item.key] = toBoolean(item.value);
         } else {
           newInputs[item.key] = item.value;
@@ -108,6 +127,14 @@ const OperationSetting = () => {
         <Card style={{ marginTop: '10px' }}>
           <SettingsGeneral options={inputs} refresh={onRefresh} />
         </Card>
+        {/* 顶栏模块管理 */}
+        <div style={{ marginTop: '10px' }}>
+          <SettingsHeaderNavModules options={inputs} refresh={onRefresh} />
+        </div>
+        {/* 左侧边栏模块管理（管理员） */}
+        <div style={{ marginTop: '10px' }}>
+          <SettingsSidebarModulesAdmin options={inputs} refresh={onRefresh} />
+        </div>
         {/* 屏蔽词过滤设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsSensitiveWords options={inputs} refresh={onRefresh} />
@@ -123,6 +150,14 @@ const OperationSetting = () => {
         {/* 额度设置 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsCreditLimit options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* 签到设置 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsCheckin options={inputs} refresh={onRefresh} />
+        </Card>
+        {/* 设置导出/导入 */}
+        <Card style={{ marginTop: '10px' }}>
+          <SettingsExportImport inputs={inputs} onRefresh={onRefresh} />
         </Card>
       </Spin>
     </>

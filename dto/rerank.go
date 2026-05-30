@@ -2,9 +2,10 @@ package dto
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"one-api/types"
 	"strings"
+
+	"github.com/QuantumNous/new-api/types"
+	"github.com/gin-gonic/gin"
 )
 
 type RerankRequest struct {
@@ -34,6 +35,12 @@ func (r *RerankRequest) GetTokenCountMeta() *types.TokenCountMeta {
 
 	return &types.TokenCountMeta{
 		CombineText: strings.Join(texts, "\n"),
+	}
+}
+
+func (r *RerankRequest) SetModelName(modelName string) {
+	if modelName != "" {
+		r.Model = modelName
 	}
 }
 

@@ -2,21 +2,30 @@ package controller
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+	"strconv"
+	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay"
+	"github.com/QuantumNous/new-api/relay/channel/ai360"
+	"github.com/QuantumNous/new-api/relay/channel/lingyiwanwu"
+	"github.com/QuantumNous/new-api/relay/channel/minimax"
+	"github.com/QuantumNous/new-api/relay/channel/moonshot"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
+	"github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
-	"net/http"
-	"one-api/common"
-	"one-api/constant"
-	"one-api/dto"
-	"one-api/model"
-	"one-api/relay"
-	"one-api/relay/channel/ai360"
-	"one-api/relay/channel/lingyiwanwu"
-	"one-api/relay/channel/minimax"
-	"one-api/relay/channel/moonshot"
-	relaycommon "one-api/relay/common"
-	"one-api/setting"
-	"time"
 )
 
 // https://platform.openai.com/docs/api-reference/models/list
@@ -108,6 +117,47 @@ func init() {
 func ListModels(c *gin.Context, modelType int) {
 	userOpenAiModels := make([]dto.OpenAIModels, 0)
 
+	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
+	if !acceptUnsetRatioModel {
+		userId := c.GetInt("id")
+		if userId > 0 {
+			userSettings, _ := model.GetUserSetting(userId, false)
+			if userSettings.AcceptUnsetRatioModel {
+				acceptUnsetRatioModel = true
+			}
+		}
+	}
+
+	specificChannelIdVal, specificChannelOk := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
+	if specificChannelOk {
+		channelId, err := strconv.Atoi(specificChannelIdVal.(string))
+		if err == nil && channelId > 0 {
+			models := model.GetChannelEnabledModels(channelId)
+			for _, modelName := range models {
+				if !acceptUnsetRatioModel {
+					_, _, exist := ratio_setting.GetModelRatioOrPrice(modelName)
+					if !exist {
+						continue
+					}
+				}
+				if oaiModel, ok := openAIModelsMap[modelName]; ok {
+					oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+					userOpenAiModels = append(userOpenAiModels, oaiModel)
+				} else {
+					userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+						Id:                     modelName,
+						Object:                 "model",
+						Created:                1626777600,
+						OwnedBy:                "custom",
+						SupportedEndpointTypes: model.GetModelSupportEndpointTypes(modelName),
+					})
+				}
+			}
+			formatModelsResponse(c, modelType, userOpenAiModels)
+			return
+		}
+	}
+
 	modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
 	if modelLimitEnable {
 		s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
@@ -118,6 +168,12 @@ func ListModels(c *gin.Context, modelType int) {
 			tokenModelLimit = map[string]bool{}
 		}
 		for allowModel, _ := range tokenModelLimit {
+			if !acceptUnsetRatioModel {
+				_, _, exist := ratio_setting.GetModelRatioOrPrice(allowModel)
+				if !exist {
+					continue
+				}
+			}
 			if oaiModel, ok := openAIModelsMap[allowModel]; ok {
 				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(allowModel)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
@@ -148,7 +204,7 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 		var models []string
 		if tokenGroup == "auto" {
-			for _, autoGroup := range setting.AutoGroups {
+			for _, autoGroup := range service.GetUserAutoGroup(userGroup) {
 				groupModels := model.GetGroupEnabledModels(autoGroup)
 				for _, g := range groupModels {
 					if !common.StringsContains(models, g) {
@@ -160,6 +216,12 @@ func ListModels(c *gin.Context, modelType int) {
 			models = model.GetGroupEnabledModels(group)
 		}
 		for _, modelName := range models {
+			if !acceptUnsetRatioModel {
+				_, _, exist := ratio_setting.GetModelRatioOrPrice(modelName)
+				if !exist {
+					continue
+				}
+			}
 			if oaiModel, ok := openAIModelsMap[modelName]; ok {
 				oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
 				userOpenAiModels = append(userOpenAiModels, oaiModel)
@@ -174,6 +236,65 @@ func ListModels(c *gin.Context, modelType int) {
 			}
 		}
 	}
+
+	// 把全局模型重定向中对用户可用的模型添加到 userOpenAiModels 中
+	globalModelMapping := model_setting.GetGlobalSettings().ModelMapping
+	if len(globalModelMapping.OneWayModelMappings) > 0 {
+		existingUserModels := make(map[string]bool)
+		for _, model := range userOpenAiModels {
+			existingUserModels[model.Id] = true
+		}
+		for model, targetModels := range globalModelMapping.OneWayModelMappings {
+			if _, exists := existingUserModels[model]; exists {
+				continue
+			}
+			// 如果全局模型重定向的目标模型中有至少一个存在于用户可用模型中，则该全局模型重定向的模型对用户可用，添加到 userOpenAiModels 中
+			shouldAddModel := false
+			for _, targetModel := range targetModels {
+				if strings.HasPrefix(targetModel, "/") {
+					re, err := regexp2.Compile(targetModel[1:], regexp2.None)
+					if err != nil {
+						logger.LogInfo(c, fmt.Sprintf("invalid regex: %s, err: %+v", targetModel, err))
+					} else {
+						for _, userModel := range userOpenAiModels {
+							if ok, err := re.MatchString(userModel.Id); err == nil && ok {
+								shouldAddModel = true
+								break
+							}
+						}
+					}
+				}
+				if _, exists := existingUserModels[targetModel]; exists {
+					shouldAddModel = true
+				}
+				if shouldAddModel {
+					break
+				}
+			}
+			if shouldAddModel {
+				userOpenAiModels = append(userOpenAiModels, dto.OpenAIModels{
+					Id:      model,
+					Object:  "model",
+					Created: 1626777600,
+					OwnedBy: "custom",
+				})
+			}
+		}
+	}
+
+	formatModelsResponse(c, modelType, userOpenAiModels)
+}
+
+func formatModelsResponse(c *gin.Context, modelType int, userOpenAiModels []dto.OpenAIModels) {
+	if len(userOpenAiModels) == 0 {
+		c.JSON(200, gin.H{
+			"success": true,
+			"data":    []dto.OpenAIModels{},
+			"object":  "list",
+		})
+		return
+	}
+
 	switch modelType {
 	case constant.ChannelTypeAnthropic:
 		useranthropicModels := make([]dto.AnthropicModel, len(userOpenAiModels))
@@ -207,6 +328,7 @@ func ListModels(c *gin.Context, modelType int) {
 		c.JSON(200, gin.H{
 			"success": true,
 			"data":    userOpenAiModels,
+			"object":  "list",
 		})
 	}
 }
@@ -247,7 +369,7 @@ func RetrieveModel(c *gin.Context, modelType int) {
 			c.JSON(200, aiModel)
 		}
 	} else {
-		openAIError := dto.OpenAIError{
+		openAIError := types.OpenAIError{
 			Message: fmt.Sprintf("The model '%s' does not exist", modelId),
 			Type:    "invalid_request_error",
 			Param:   "model",

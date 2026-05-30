@@ -24,6 +24,7 @@ import LogsActions from './UsageLogsActions';
 import LogsFilters from './UsageLogsFilters';
 import ColumnSelectorModal from './modals/ColumnSelectorModal';
 import UserInfoModal from './modals/UserInfoModal';
+import ChannelAffinityUsageCacheModal from './modals/ChannelAffinityUsageCacheModal';
 import { useLogsData } from '../../../hooks/usage-logs/useUsageLogsData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
@@ -37,10 +38,11 @@ const LogsPage = () => {
       {/* Modals */}
       <ColumnSelectorModal {...logsData} />
       <UserInfoModal {...logsData} />
+      <ChannelAffinityUsageCacheModal {...logsData} />
 
       {/* Main Content */}
       <CardPro
-        type="type2"
+        type='type2'
         statsArea={<LogsActions {...logsData} />}
         searchArea={<LogsFilters {...logsData} />}
         paginationArea={createCardProPagination({
@@ -60,4 +62,4 @@ const LogsPage = () => {
   );
 };
 
-export default LogsPage; 
+export default LogsPage;

@@ -31,7 +31,9 @@ import {
   LayoutDashboard,
   MessageSquare,
   Palette,
-  CreditCard
+  CreditCard,
+  Server,
+  Activity,
 } from 'lucide-react';
 
 import SystemSetting from '../../components/settings/SystemSetting';
@@ -45,6 +47,8 @@ import RatioSetting from '../../components/settings/RatioSetting';
 import ChatsSetting from '../../components/settings/ChatsSetting';
 import DrawingSetting from '../../components/settings/DrawingSetting';
 import PaymentSetting from '../../components/settings/PaymentSetting';
+import ModelDeploymentSetting from '../../components/settings/ModelDeploymentSetting';
+import PerformanceSetting from '../../components/settings/PerformanceSetting';
 
 const Setting = () => {
   const { t } = useTranslation();
@@ -108,7 +112,7 @@ const Setting = () => {
       tab: (
         <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <Calculator size={18} />
-          {t('倍率设置')}
+          {t('分组与模型定价设置')}
         </span>
       ),
       content: <RatioSetting />,
@@ -133,6 +137,26 @@ const Setting = () => {
       ),
       content: <ModelSetting />,
       itemKey: 'models',
+    });
+    panes.push({
+      tab: (
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <Server size={18} />
+          {t('模型部署设置')}
+        </span>
+      ),
+      content: <ModelDeploymentSetting />,
+      itemKey: 'model-deployment',
+    });
+    panes.push({
+      tab: (
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <Activity size={18} />
+          {t('性能设置')}
+        </span>
+      ),
+      content: <PerformanceSetting />,
+      itemKey: 'performance',
     });
     panes.push({
       tab: (
@@ -169,7 +193,7 @@ const Setting = () => {
     }
   }, [location.search]);
   return (
-    <div className="mt-[60px] px-2">
+    <div className='mt-[60px] px-2'>
       <Layout>
         <Layout.Content>
           <Tabs

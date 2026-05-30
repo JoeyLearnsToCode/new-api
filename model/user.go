@@ -1,24 +1,28 @@
 package model
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"one-api/common"
-	"one-api/dto"
-	"one-api/logger"
 	"strconv"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
 
+const UserNameMaxLength = 20
+
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
 type User struct {
 	Id               int            `json:"id"`
-	Username         string         `json:"username" gorm:"unique;index" validate:"max=12"`
+	Username         string         `json:"username" gorm:"unique;index" validate:"max=20"`
 	Password         string         `json:"password" gorm:"not null;" validate:"min=8,max=20"`
 	OriginalPassword string         `json:"original_password" gorm:"-:all"` // this field is only for Password change verification, don't save it to database!
 	DisplayName      string         `json:"display_name" gorm:"index" validate:"max=20"`
@@ -26,6 +30,7 @@ type User struct {
 	Status           int            `json:"status" gorm:"type:int;default:1"` // enabled, disabled
 	Email            string         `json:"email" gorm:"index" validate:"max=50"`
 	GitHubId         string         `json:"github_id" gorm:"column:github_id;index"`
+	DiscordId        string         `json:"discord_id" gorm:"column:discord_id;index"`
 	OidcId           string         `json:"oidc_id" gorm:"column:oidc_id;index"`
 	WeChatId         string         `json:"wechat_id" gorm:"column:wechat_id;index"`
 	TelegramId       string         `json:"telegram_id" gorm:"column:telegram_id;index"`
@@ -89,6 +94,68 @@ func (user *User) SetSetting(setting dto.UserSetting) {
 		return
 	}
 	user.Setting = string(settingBytes)
+}
+
+// 根据用户角色生成默认的边栏配置
+func generateDefaultSidebarConfigForRole(userRole int) string {
+	defaultConfig := map[string]interface{}{}
+
+	// 聊天区域 - 所有用户都可以访问
+	defaultConfig["chat"] = map[string]interface{}{
+		"enabled":    true,
+		"playground": true,
+		"chat":       true,
+	}
+
+	// 控制台区域 - 所有用户都可以访问
+	defaultConfig["console"] = map[string]interface{}{
+		"enabled":    true,
+		"detail":     true,
+		"token":      true,
+		"log":        true,
+		"midjourney": true,
+		"task":       true,
+	}
+
+	// 个人中心区域 - 所有用户都可以访问
+	defaultConfig["personal"] = map[string]interface{}{
+		"enabled":  true,
+		"topup":    true,
+		"personal": true,
+	}
+
+	// 管理员区域 - 根据角色决定
+	if userRole == common.RoleAdminUser {
+		// 管理员可以访问管理员区域，但不能访问系统设置
+		defaultConfig["admin"] = map[string]interface{}{
+			"enabled":    true,
+			"channel":    true,
+			"models":     true,
+			"redemption": true,
+			"user":       true,
+			"setting":    false, // 管理员不能访问系统设置
+		}
+	} else if userRole == common.RoleRootUser {
+		// 超级管理员可以访问所有功能
+		defaultConfig["admin"] = map[string]interface{}{
+			"enabled":    true,
+			"channel":    true,
+			"models":     true,
+			"redemption": true,
+			"user":       true,
+			"setting":    true,
+		}
+	}
+	// 普通用户不包含admin区域
+
+	// 转换为JSON字符串
+	configBytes, err := json.Marshal(defaultConfig)
+	if err != nil {
+		common.SysLog("生成默认边栏配置失败: " + err.Error())
+		return ""
+	}
+
+	return string(configBytes)
 }
 
 // CheckUserExistOrDeleted check if user exist or deleted, if not exist, return false, nil, if deleted or exist, return true, nil
@@ -320,10 +387,34 @@ func (user *User) Insert(inviterId int) error {
 	user.Quota = common.QuotaForNewUser
 	//user.SetAccessToken(common.GetUUID())
 	user.AffCode = common.GetRandomString(4)
+
+	// 初始化用户设置，包括默认的边栏配置
+	if user.Setting == "" {
+		defaultSetting := dto.UserSetting{}
+		// 这里暂时不设置SidebarModules，因为需要在用户创建后根据角色设置
+		user.SetSetting(defaultSetting)
+	}
+
 	result := DB.Create(user)
 	if result.Error != nil {
 		return result.Error
 	}
+
+	// 用户创建成功后，根据角色初始化边栏配置
+	// 需要重新获取用户以确保有正确的ID和Role
+	var createdUser User
+	if err := DB.Where("username = ?", user.Username).First(&createdUser).Error; err == nil {
+		// 生成基于角色的默认边栏配置
+		defaultSidebarConfig := generateDefaultSidebarConfigForRole(createdUser.Role)
+		if defaultSidebarConfig != "" {
+			currentSetting := createdUser.GetSetting()
+			currentSetting.SidebarModules = defaultSidebarConfig
+			createdUser.SetSetting(currentSetting)
+			createdUser.Update(false)
+			common.SysLog(fmt.Sprintf("为新用户 %s (角色: %d) 初始化边栏配置", createdUser.Username, createdUser.Role))
+		}
+	}
+
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
@@ -339,6 +430,65 @@ func (user *User) Insert(inviterId int) error {
 		}
 	}
 	return nil
+}
+
+// InsertWithTx inserts a new user within an existing transaction.
+// This is used for OAuth registration where user creation and binding need to be atomic.
+// Post-creation tasks (sidebar config, logs, inviter rewards) are handled after the transaction commits.
+func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
+	var err error
+	if user.Password != "" {
+		user.Password, err = common.Password2Hash(user.Password)
+		if err != nil {
+			return err
+		}
+	}
+	user.Quota = common.QuotaForNewUser
+	user.AffCode = common.GetRandomString(4)
+
+	// 初始化用户设置
+	if user.Setting == "" {
+		defaultSetting := dto.UserSetting{}
+		user.SetSetting(defaultSetting)
+	}
+
+	result := tx.Create(user)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}
+
+// FinalizeOAuthUserCreation performs post-transaction tasks for OAuth user creation.
+// This should be called after the transaction commits successfully.
+func (user *User) FinalizeOAuthUserCreation(inviterId int) {
+	// 用户创建成功后，根据角色初始化边栏配置
+	var createdUser User
+	if err := DB.Where("id = ?", user.Id).First(&createdUser).Error; err == nil {
+		defaultSidebarConfig := generateDefaultSidebarConfigForRole(createdUser.Role)
+		if defaultSidebarConfig != "" {
+			currentSetting := createdUser.GetSetting()
+			currentSetting.SidebarModules = defaultSidebarConfig
+			createdUser.SetSetting(currentSetting)
+			createdUser.Update(false)
+			common.SysLog(fmt.Sprintf("为新用户 %s (角色: %d) 初始化边栏配置", createdUser.Username, createdUser.Role))
+		}
+	}
+
+	if common.QuotaForNewUser > 0 {
+		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
+	}
+	if inviterId != 0 {
+		if common.QuotaForInvitee > 0 {
+			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
+			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
+		}
+		if common.QuotaForInviter > 0 {
+			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
+			_ = inviteUser(inviterId)
+		}
+	}
 }
 
 func (user *User) Update(updatePassword bool) error {
@@ -386,6 +536,37 @@ func (user *User) Edit(updatePassword bool) error {
 	}
 
 	// Update cache
+	return updateUserCache(*user)
+}
+
+func (user *User) ClearBinding(bindingType string) error {
+	if user.Id == 0 {
+		return errors.New("user id is empty")
+	}
+
+	bindingColumnMap := map[string]string{
+		"email":    "email",
+		"github":   "github_id",
+		"discord":  "discord_id",
+		"oidc":     "oidc_id",
+		"wechat":   "wechat_id",
+		"telegram": "telegram_id",
+		"linuxdo":  "linux_do_id",
+	}
+
+	column, ok := bindingColumnMap[bindingType]
+	if !ok {
+		return errors.New("invalid binding type")
+	}
+
+	if err := DB.Model(&User{}).Where("id = ?", user.Id).Update(column, "").Error; err != nil {
+		return err
+	}
+
+	if err := DB.Where("id = ?", user.Id).First(user).Error; err != nil {
+		return err
+	}
+
 	return updateUserCache(*user)
 }
 
@@ -452,6 +633,22 @@ func (user *User) FillUserByGitHubId() error {
 	return nil
 }
 
+// UpdateGitHubId updates the user's GitHub ID (used for migration from login to numeric ID)
+func (user *User) UpdateGitHubId(newGitHubId string) error {
+	if user.Id == 0 {
+		return errors.New("user id is empty")
+	}
+	return DB.Model(user).Update("github_id", newGitHubId).Error
+}
+
+func (user *User) FillUserByDiscordId() error {
+	if user.DiscordId == "" {
+		return errors.New("discord id 为空！")
+	}
+	DB.Where(User{DiscordId: user.DiscordId}).First(user)
+	return nil
+}
+
 func (user *User) FillUserByOidcId() error {
 	if user.OidcId == "" {
 		return errors.New("oidc id 为空！")
@@ -489,6 +686,10 @@ func IsWeChatIdAlreadyTaken(wechatId string) bool {
 
 func IsGitHubIdAlreadyTaken(githubId string) bool {
 	return DB.Unscoped().Where("github_id = ?", githubId).Find(&User{}).RowsAffected == 1
+}
+
+func IsDiscordIdAlreadyTaken(discordId string) bool {
+	return DB.Unscoped().Where("discord_id = ?", discordId).Find(&User{}).RowsAffected == 1
 }
 
 func IsOidcIdAlreadyTaken(oidcId string) bool {
@@ -653,9 +854,16 @@ func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error)
 		// Don't return error - fall through to DB
 	}
 	fromDB = true
-	err = DB.Model(&User{}).Where("id = ?", id).Select("setting").Find(&setting).Error
+	// can be nil setting
+	var safeSetting sql.NullString
+	err = DB.Model(&User{}).Where("id = ?", id).Select("setting").Find(&safeSetting).Error
 	if err != nil {
 		return settingMap, err
+	}
+	if safeSetting.Valid {
+		setting = safeSetting.String
+	} else {
+		setting = ""
 	}
 	userBase := &UserBase{
 		Setting: setting,

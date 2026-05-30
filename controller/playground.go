@@ -3,12 +3,14 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"one-api/common"
-	"one-api/constant"
-	"one-api/middleware"
-	"one-api/model"
-	"one-api/types"
-	"time"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,10 +32,25 @@ func Playground(c *gin.Context) {
 		return
 	}
 
-	group := c.GetString("group")
-	modelName := c.GetString("original_model")
+	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatOpenAI, nil, nil)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		return
+	}
 
 	userId := c.GetInt("id")
+
+	// 让操练场选择的分组生效
+	playgroundRequest := &dto.PlayGroundRequest{}
+	err = common.UnmarshalBodyReusable(c, playgroundRequest)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		return
+	}
+	if playgroundRequest.Group != "" {
+		group := playgroundRequest.Group
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, group)
+	}
 
 	// Write user context to ensure acceptUnsetRatio is available
 	userCache, err := model.GetUserCache(userId)
@@ -45,16 +62,10 @@ func Playground(c *gin.Context) {
 
 	tempToken := &model.Token{
 		UserId: userId,
-		Name:   fmt.Sprintf("playground-%s", group),
-		Group:  group,
+		Name:   fmt.Sprintf("playground-%s", relayInfo.UsingGroup),
+		Group:  relayInfo.UsingGroup,
 	}
 	_ = middleware.SetupContextForToken(c, tempToken)
-	_, newAPIError = getChannel(c, group, modelName, 0)
-	if newAPIError != nil {
-		return
-	}
-	//middleware.SetupContextForSelectedChannel(c, channel, playgroundRequest.Model)
-	common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
 
 	Relay(c, types.RelayFormatOpenAI)
 }

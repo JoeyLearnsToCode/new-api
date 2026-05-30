@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   API,
@@ -27,12 +27,16 @@ import {
   showSuccess,
   updateAPI,
   getSystemName,
-  setUserData
+  getOAuthProviderIcon,
+  setUserData,
+  onDiscordOAuthClicked,
+  onCustomOAuthClicked,
 } from '../../helpers';
 import Turnstile from 'react-turnstile';
 import {
   Button,
   Card,
+  Checkbox,
   Divider,
   Form,
   Icon,
@@ -40,7 +44,13 @@ import {
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
-import { IconGithubLogo, IconMail, IconUser, IconLock, IconKey } from '@douyinfe/semi-icons';
+import {
+  IconGithubLogo,
+  IconMail,
+  IconUser,
+  IconLock,
+  IconKey,
+} from '@douyinfe/semi-icons';
 import {
   onGitHubOAuthClicked,
   onLinuxDOOAuthClicked,
@@ -51,11 +61,18 @@ import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
 import TelegramLoginButton from 'react-telegram-login/src';
 import { UserContext } from '../../context/User';
+import { StatusContext } from '../../context/Status';
 import { useTranslation } from 'react-i18next';
+import { SiDiscord } from 'react-icons/si';
 
 const RegisterForm = () => {
   let navigate = useNavigate();
   const { t } = useTranslation();
+  const githubButtonTextKeyByState = {
+    idle: '使用 GitHub 继续',
+    redirecting: '正在跳转 GitHub...',
+    timeout: '请求超时，请刷新页面后重新发起 GitHub 登录',
+  };
   const [inputs, setInputs] = useState({
     username: '',
     password: '',
@@ -66,6 +83,7 @@ const RegisterForm = () => {
   });
   const { username, password, password2 } = inputs;
   const [userState, userDispatch] = useContext(UserContext);
+  const [statusState] = useContext(StatusContext);
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
@@ -73,15 +91,25 @@ const RegisterForm = () => {
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [wechatLoading, setWechatLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
+  const [discordLoading, setDiscordLoading] = useState(false);
   const [oidcLoading, setOidcLoading] = useState(false);
   const [linuxdoLoading, setLinuxdoLoading] = useState(false);
   const [emailRegisterLoading, setEmailRegisterLoading] = useState(false);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [verificationCodeLoading, setVerificationCodeLoading] = useState(false);
-  const [otherRegisterOptionsLoading, setOtherRegisterOptionsLoading] = useState(false);
+  const [otherRegisterOptionsLoading, setOtherRegisterOptionsLoading] =
+    useState(false);
   const [wechatCodeSubmitLoading, setWechatCodeSubmitLoading] = useState(false);
+  const [customOAuthLoading, setCustomOAuthLoading] = useState({});
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [hasUserAgreement, setHasUserAgreement] = useState(false);
+  const [hasPrivacyPolicy, setHasPrivacyPolicy] = useState(false);
+  const [githubButtonState, setGithubButtonState] = useState('idle');
+  const [githubButtonDisabled, setGithubButtonDisabled] = useState(false);
+  const githubTimeoutRef = useRef(null);
+  const githubButtonText = t(githubButtonTextKeyByState[githubButtonState]);
 
   const logo = getLogo();
   const systemName = getSystemName();
@@ -91,21 +119,40 @@ const RegisterForm = () => {
     localStorage.setItem('aff', affCode);
   }
 
-  const [status] = useState(() => {
+  const status = useMemo(() => {
+    if (statusState?.status) return statusState.status;
     const savedStatus = localStorage.getItem('status');
-    return savedStatus ? JSON.parse(savedStatus) : {};
-  });
+    if (!savedStatus) return {};
+    try {
+      return JSON.parse(savedStatus) || {};
+    } catch (err) {
+      return {};
+    }
+  }, [statusState?.status]);
+  const hasCustomOAuthProviders =
+    (status.custom_oauth_providers || []).length > 0;
+  const hasOAuthRegisterOptions = Boolean(
+    status.github_oauth ||
+      status.discord_oauth ||
+      status.oidc_enabled ||
+      status.wechat_login ||
+      status.linuxdo_oauth ||
+      status.telegram_oauth ||
+      hasCustomOAuthProviders,
+  );
 
-  const [showEmailVerification, setShowEmailVerification] = useState(() => {
-    return status.email_verification ?? false;
-  });
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
 
   useEffect(() => {
-    setShowEmailVerification(status.email_verification);
-    if (status.turnstile_check) {
+    setShowEmailVerification(!!status?.email_verification);
+    if (status?.turnstile_check) {
       setTurnstileEnabled(true);
       setTurnstileSiteKey(status.turnstile_site_key);
     }
+
+    // 从 status 获取用户协议和隐私政策的启用状态
+    setHasUserAgreement(status?.user_agreement_enabled || false);
+    setHasPrivacyPolicy(status?.privacy_policy_enabled || false);
   }, [status]);
 
   useEffect(() => {
@@ -120,6 +167,14 @@ const RegisterForm = () => {
     }
     return () => clearInterval(countdownInterval); // Clean up on unmount
   }, [disableButton, countdown]);
+
+  useEffect(() => {
+    return () => {
+      if (githubTimeoutRef.current) {
+        clearTimeout(githubTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const onWeChatLoginClicked = () => {
     setWechatLoading(true);
@@ -208,7 +263,7 @@ const RegisterForm = () => {
     setVerificationCodeLoading(true);
     try {
       const res = await API.get(
-        `/api/verification?email=${inputs.email}&turnstile=${turnstileToken}`,
+        `/api/verification?email=${encodeURIComponent(inputs.email)}&turnstile=${turnstileToken}`,
       );
       const { success, message } = res.data;
       if (success) {
@@ -225,11 +280,33 @@ const RegisterForm = () => {
   };
 
   const handleGitHubClick = () => {
+    if (githubButtonDisabled) {
+      return;
+    }
     setGithubLoading(true);
+    setGithubButtonDisabled(true);
+    setGithubButtonState('redirecting');
+    if (githubTimeoutRef.current) {
+      clearTimeout(githubTimeoutRef.current);
+    }
+    githubTimeoutRef.current = setTimeout(() => {
+      setGithubLoading(false);
+      setGithubButtonState('timeout');
+      setGithubButtonDisabled(true);
+    }, 20000);
     try {
-      onGitHubOAuthClicked(status.github_client_id);
+      onGitHubOAuthClicked(status.github_client_id, { shouldLogout: true });
     } finally {
       setTimeout(() => setGithubLoading(false), 3000);
+    }
+  };
+
+  const handleDiscordClick = () => {
+    setDiscordLoading(true);
+    try {
+      onDiscordOAuthClicked(status.discord_client_id, { shouldLogout: true });
+    } finally {
+      setTimeout(() => setDiscordLoading(false), 3000);
     }
   };
 
@@ -238,7 +315,9 @@ const RegisterForm = () => {
     try {
       onOIDCClicked(
         status.oidc_authorization_endpoint,
-        status.oidc_client_id
+        status.oidc_client_id,
+        false,
+        { shouldLogout: true },
       );
     } finally {
       setTimeout(() => setOidcLoading(false), 3000);
@@ -248,9 +327,20 @@ const RegisterForm = () => {
   const handleLinuxDOClick = () => {
     setLinuxdoLoading(true);
     try {
-      onLinuxDOOAuthClicked(status.linuxdo_client_id);
+      onLinuxDOOAuthClicked(status.linuxdo_client_id, { shouldLogout: true });
     } finally {
       setTimeout(() => setLinuxdoLoading(false), 3000);
+    }
+  };
+
+  const handleCustomOAuthClick = (provider) => {
+    setCustomOAuthLoading((prev) => ({ ...prev, [provider.slug]: true }));
+    try {
+      onCustomOAuthClicked(provider, { shouldLogout: true });
+    } finally {
+      setTimeout(() => {
+        setCustomOAuthLoading((prev) => ({ ...prev, [provider.slug]: false }));
+      }, 3000);
     }
   };
 
@@ -303,73 +393,126 @@ const RegisterForm = () => {
 
   const renderOAuthOptions = () => {
     return (
-      <div className="flex flex-col items-center">
-        <div className="w-full max-w-md">
-          <div className="flex items-center justify-center mb-6 gap-2">
-            <img src={logo} alt="Logo" className="h-10 rounded-full" />
-            <Title heading={3} className='!text-gray-800'>{systemName}</Title>
+      <div className='flex flex-col items-center'>
+        <div className='w-full max-w-md'>
+          <div className='flex items-center justify-center mb-6 gap-2'>
+            <img src={logo} alt='Logo' className='h-10 rounded-full' />
+            <Title heading={3} className='!text-gray-800'>
+              {systemName}
+            </Title>
           </div>
 
-          <Card className="border-0 !rounded-2xl overflow-hidden">
-            <div className="flex justify-center pt-6 pb-2">
-              <Title heading={3} className="text-gray-800 dark:text-gray-200">{t('注 册')}</Title>
+          <Card className='border-0 !rounded-2xl overflow-hidden'>
+            <div className='flex justify-center pt-6 pb-2'>
+              <Title heading={3} className='text-gray-800 dark:text-gray-200'>
+                {t('注 册')}
+              </Title>
             </div>
-            <div className="px-2 py-8">
-              <div className="space-y-3">
+            <div className='px-2 py-8'>
+              <div className='space-y-3'>
                 {status.wechat_login && (
                   <Button
                     theme='outline'
-                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
-                    type="tertiary"
-                    icon={<Icon svg={<WeChatIcon />} style={{ color: '#07C160' }} />}
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={
+                      <Icon svg={<WeChatIcon />} style={{ color: '#07C160' }} />
+                    }
                     onClick={onWeChatLoginClicked}
                     loading={wechatLoading}
                   >
-                    <span className="ml-3">{t('使用 微信 继续')}</span>
+                    <span className='ml-3'>{t('使用 微信 继续')}</span>
                   </Button>
                 )}
 
                 {status.github_oauth && (
                   <Button
                     theme='outline'
-                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
-                    type="tertiary"
-                    icon={<IconGithubLogo size="large" />}
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={<IconGithubLogo size='large' />}
                     onClick={handleGitHubClick}
                     loading={githubLoading}
+                    disabled={githubButtonDisabled}
                   >
-                    <span className="ml-3">{t('使用 GitHub 继续')}</span>
+                    <span className='ml-3'>{githubButtonText}</span>
+                  </Button>
+                )}
+
+                {status.discord_oauth && (
+                  <Button
+                    theme='outline'
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={
+                      <SiDiscord
+                        style={{
+                          color: '#5865F2',
+                          width: '20px',
+                          height: '20px',
+                        }}
+                      />
+                    }
+                    onClick={handleDiscordClick}
+                    loading={discordLoading}
+                  >
+                    <span className='ml-3'>{t('使用 Discord 继续')}</span>
                   </Button>
                 )}
 
                 {status.oidc_enabled && (
                   <Button
                     theme='outline'
-                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
-                    type="tertiary"
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
                     icon={<OIDCIcon style={{ color: '#1877F2' }} />}
                     onClick={handleOIDCClick}
                     loading={oidcLoading}
                   >
-                    <span className="ml-3">{t('使用 OIDC 继续')}</span>
+                    <span className='ml-3'>{t('使用 OIDC 继续')}</span>
                   </Button>
                 )}
 
                 {status.linuxdo_oauth && (
                   <Button
                     theme='outline'
-                    className="w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
-                    type="tertiary"
-                    icon={<LinuxDoIcon style={{ color: '#E95420', width: '20px', height: '20px' }} />}
+                    className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                    type='tertiary'
+                    icon={
+                      <LinuxDoIcon
+                        style={{
+                          color: '#E95420',
+                          width: '20px',
+                          height: '20px',
+                        }}
+                      />
+                    }
                     onClick={handleLinuxDOClick}
                     loading={linuxdoLoading}
                   >
-                    <span className="ml-3">{t('使用 LinuxDO 继续')}</span>
+                    <span className='ml-3'>{t('使用 LinuxDO 继续')}</span>
                   </Button>
                 )}
 
+                {status.custom_oauth_providers &&
+                  status.custom_oauth_providers.map((provider) => (
+                    <Button
+                      key={provider.slug}
+                      theme='outline'
+                      className='w-full h-12 flex items-center justify-center !rounded-full border border-gray-200 hover:bg-gray-50 transition-colors'
+                      type='tertiary'
+                      icon={getOAuthProviderIcon(provider.icon || '', 20)}
+                      onClick={() => handleCustomOAuthClick(provider)}
+                      loading={customOAuthLoading[provider.slug]}
+                    >
+                      <span className='ml-3'>
+                        {t('使用 {{name}} 继续', { name: provider.name })}
+                      </span>
+                    </Button>
+                  ))}
+
                 {status.telegram_oauth && (
-                  <div className="flex justify-center my-2">
+                  <div className='flex justify-center my-2'>
                     <TelegramLoginButton
                       dataOnauth={onTelegramLoginClicked}
                       botName={status.telegram_bot_name}
@@ -382,19 +525,27 @@ const RegisterForm = () => {
                 </Divider>
 
                 <Button
-                  theme="solid"
-                  type="primary"
-                  className="w-full h-12 flex items-center justify-center bg-black text-white !rounded-full hover:bg-gray-800 transition-colors"
-                  icon={<IconMail size="large" />}
+                  theme='solid'
+                  type='primary'
+                  className='w-full h-12 flex items-center justify-center bg-black text-white !rounded-full hover:bg-gray-800 transition-colors'
+                  icon={<IconMail size='large' />}
                   onClick={handleEmailRegisterClick}
                   loading={emailRegisterLoading}
                 >
-                  <span className="ml-3">{t('使用 用户名 注册')}</span>
+                  <span className='ml-3'>{t('使用 用户名 注册')}</span>
                 </Button>
               </div>
 
-              <div className="mt-6 text-center text-sm">
-                <Text>{t('已有账户？')} <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium">{t('登录')}</Link></Text>
+              <div className='mt-6 text-center text-sm'>
+                <Text>
+                  {t('已有账户？')}{' '}
+                  <Link
+                    to='/login'
+                    className='text-blue-600 hover:text-blue-800 font-medium'
+                  >
+                    {t('登录')}
+                  </Link>
+                </Text>
               </div>
             </div>
           </Card>
@@ -405,44 +556,48 @@ const RegisterForm = () => {
 
   const renderEmailRegisterForm = () => {
     return (
-      <div className="flex flex-col items-center">
-        <div className="w-full max-w-md">
-          <div className="flex items-center justify-center mb-6 gap-2">
-            <img src={logo} alt="Logo" className="h-10 rounded-full" />
-            <Title heading={3} className='!text-gray-800'>{systemName}</Title>
+      <div className='flex flex-col items-center'>
+        <div className='w-full max-w-md'>
+          <div className='flex items-center justify-center mb-6 gap-2'>
+            <img src={logo} alt='Logo' className='h-10 rounded-full' />
+            <Title heading={3} className='!text-gray-800'>
+              {systemName}
+            </Title>
           </div>
 
-          <Card className="border-0 !rounded-2xl overflow-hidden">
-            <div className="flex justify-center pt-6 pb-2">
-              <Title heading={3} className="text-gray-800 dark:text-gray-200">{t('注 册')}</Title>
+          <Card className='border-0 !rounded-2xl overflow-hidden'>
+            <div className='flex justify-center pt-6 pb-2'>
+              <Title heading={3} className='text-gray-800 dark:text-gray-200'>
+                {t('注 册')}
+              </Title>
             </div>
-            <div className="px-2 py-8">
-              <Form className="space-y-3">
+            <div className='px-2 py-8'>
+              <Form className='space-y-3'>
                 <Form.Input
-                  field="username"
+                  field='username'
                   label={t('用户名')}
                   placeholder={t('请输入用户名')}
-                  name="username"
+                  name='username'
                   onChange={(value) => handleChange('username', value)}
                   prefix={<IconUser />}
                 />
 
                 <Form.Input
-                  field="password"
+                  field='password'
                   label={t('密码')}
                   placeholder={t('输入密码，最短 8 位，最长 20 位')}
-                  name="password"
-                  mode="password"
+                  name='password'
+                  mode='password'
                   onChange={(value) => handleChange('password', value)}
                   prefix={<IconLock />}
                 />
 
                 <Form.Input
-                  field="password2"
+                  field='password2'
                   label={t('确认密码')}
                   placeholder={t('确认密码')}
-                  name="password2"
-                  mode="password"
+                  name='password2'
+                  mode='password'
                   onChange={(value) => handleChange('password2', value)}
                   prefix={<IconLock />}
                 />
@@ -450,11 +605,11 @@ const RegisterForm = () => {
                 {showEmailVerification && (
                   <>
                     <Form.Input
-                      field="email"
+                      field='email'
                       label={t('邮箱')}
                       placeholder={t('输入邮箱地址')}
-                      name="email"
-                      type="email"
+                      name='email'
+                      type='email'
                       onChange={(value) => handleChange('email', value)}
                       prefix={<IconMail />}
                       suffix={
@@ -463,46 +618,91 @@ const RegisterForm = () => {
                           loading={verificationCodeLoading}
                           disabled={disableButton || verificationCodeLoading}
                         >
-                          {disableButton ? `${t('重新发送')} (${countdown})` : t('获取验证码')}
+                          {disableButton
+                            ? `${t('重新发送')} (${countdown})`
+                            : t('获取验证码')}
                         </Button>
                       }
                     />
                     <Form.Input
-                      field="verification_code"
+                      field='verification_code'
                       label={t('验证码')}
                       placeholder={t('输入验证码')}
-                      name="verification_code"
-                      onChange={(value) => handleChange('verification_code', value)}
+                      name='verification_code'
+                      onChange={(value) =>
+                        handleChange('verification_code', value)
+                      }
                       prefix={<IconKey />}
                     />
                   </>
                 )}
 
-                <div className="space-y-2 pt-2">
+                {(hasUserAgreement || hasPrivacyPolicy) && (
+                  <div className='pt-4'>
+                    <Checkbox
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    >
+                      <Text size='small' className='text-gray-600'>
+                        {t('我已阅读并同意')}
+                        {hasUserAgreement && (
+                          <>
+                            <a
+                              href='/user-agreement'
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='text-blue-600 hover:text-blue-800 mx-1'
+                            >
+                              {t('用户协议')}
+                            </a>
+                          </>
+                        )}
+                        {hasUserAgreement && hasPrivacyPolicy && t('和')}
+                        {hasPrivacyPolicy && (
+                          <>
+                            <a
+                              href='/privacy-policy'
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='text-blue-600 hover:text-blue-800 mx-1'
+                            >
+                              {t('隐私政策')}
+                            </a>
+                          </>
+                        )}
+                      </Text>
+                    </Checkbox>
+                  </div>
+                )}
+
+                <div className='space-y-2 pt-2'>
                   <Button
-                    theme="solid"
-                    className="w-full !rounded-full"
-                    type="primary"
-                    htmlType="submit"
+                    theme='solid'
+                    className='w-full !rounded-full'
+                    type='primary'
+                    htmlType='submit'
                     onClick={handleSubmit}
                     loading={registerLoading}
+                    disabled={
+                      (hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms
+                    }
                   >
                     {t('注册')}
                   </Button>
                 </div>
               </Form>
 
-              {(status.github_oauth || status.oidc_enabled || status.wechat_login || status.linuxdo_oauth || status.telegram_oauth) && (
+              {hasOAuthRegisterOptions && (
                 <>
                   <Divider margin='12px' align='center'>
                     {t('或')}
                   </Divider>
 
-                  <div className="mt-4 text-center">
+                  <div className='mt-4 text-center'>
                     <Button
-                      theme="outline"
-                      type="tertiary"
-                      className="w-full !rounded-full"
+                      theme='outline'
+                      type='tertiary'
+                      className='w-full !rounded-full'
                       onClick={handleOtherRegisterOptionsClick}
                       loading={otherRegisterOptionsLoading}
                     >
@@ -512,8 +712,16 @@ const RegisterForm = () => {
                 </>
               )}
 
-              <div className="mt-6 text-center text-sm">
-                <Text>{t('已有账户？')} <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium">{t('登录')}</Link></Text>
+              <div className='mt-6 text-center text-sm'>
+                <Text>
+                  {t('已有账户？')}{' '}
+                  <Link
+                    to='/login'
+                    className='text-blue-600 hover:text-blue-800 font-medium'
+                  >
+                    {t('登录')}
+                  </Link>
+                </Text>
               </div>
             </div>
           </Card>
@@ -536,21 +744,25 @@ const RegisterForm = () => {
           loading: wechatCodeSubmitLoading,
         }}
       >
-        <div className="flex flex-col items-center">
-          <img src={status.wechat_qrcode} alt="微信二维码" className="mb-4" />
+        <div className='flex flex-col items-center'>
+          <img src={status.wechat_qrcode} alt='微信二维码' className='mb-4' />
         </div>
 
-        <div className="text-center mb-4">
-          <p>{t('微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）')}</p>
+        <div className='text-center mb-4'>
+          <p>
+            {t('微信扫码关注公众号，输入「验证码」获取验证码（三分钟内有效）')}
+          </p>
         </div>
 
         <Form>
           <Form.Input
-            field="wechat_verification_code"
+            field='wechat_verification_code'
             placeholder={t('验证码')}
             label={t('验证码')}
             value={inputs.wechat_verification_code}
-            onChange={(value) => handleChange('wechat_verification_code', value)}
+            onChange={(value) =>
+              handleChange('wechat_verification_code', value)
+            }
           />
         </Form>
       </Modal>
@@ -558,18 +770,25 @@ const RegisterForm = () => {
   };
 
   return (
-    <div className="relative overflow-hidden bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className='relative overflow-hidden bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8'>
       {/* 背景模糊晕染球 */}
-      <div className="blur-ball blur-ball-indigo" style={{ top: '-80px', right: '-80px', transform: 'none' }} />
-      <div className="blur-ball blur-ball-teal" style={{ top: '50%', left: '-120px' }} />
-      <div className="w-full max-w-sm mt-[60px]">
-        {showEmailRegister || !(status.github_oauth || status.oidc_enabled || status.wechat_login || status.linuxdo_oauth || status.telegram_oauth)
+      <div
+        className='blur-ball blur-ball-indigo'
+        style={{ top: '-80px', right: '-80px', transform: 'none' }}
+      />
+      <div
+        className='blur-ball blur-ball-teal'
+        style={{ top: '50%', left: '-120px' }}
+      />
+      <div className='w-full max-w-sm mt-[60px]'>
+        {showEmailRegister ||
+        !hasOAuthRegisterOptions
           ? renderEmailRegisterForm()
           : renderOAuthOptions()}
         {renderWeChatLoginModal()}
 
         {turnstileEnabled && (
-          <div className="flex justify-center mt-6">
+          <div className='flex justify-center mt-6'>
             <Turnstile
               sitekey={turnstileSiteKey}
               onVerify={(token) => {

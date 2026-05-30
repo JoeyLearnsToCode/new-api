@@ -54,6 +54,8 @@ import {
   FastGPT,
   Kling,
   Jimeng,
+  Perplexity,
+  Replicate,
 } from '@lobehub/icons';
 
 import {
@@ -71,7 +73,34 @@ import {
   Settings,
   CircleUser,
   Package,
+  Server,
+  CalendarClock,
 } from 'lucide-react';
+import {
+  SiAtlassian,
+  SiAuth0,
+  SiAuthentik,
+  SiBitbucket,
+  SiDiscord,
+  SiDropbox,
+  SiFacebook,
+  SiGitea,
+  SiGithub,
+  SiGitlab,
+  SiGoogle,
+  SiKeycloak,
+  SiLinkedin,
+  SiNextcloud,
+  SiNotion,
+  SiOkta,
+  SiOpenid,
+  SiReddit,
+  SiSlack,
+  SiTelegram,
+  SiTwitch,
+  SiWechat,
+  SiX,
+} from 'react-icons/si';
 
 // 获取侧边栏Lucide图标组件
 export function getLucideIcon(key, selected = false) {
@@ -88,104 +117,38 @@ export function getLucideIcon(key, selected = false) {
   // 根据不同的key返回不同的图标
   switch (key) {
     case 'detail':
-      return (
-        <LayoutDashboard
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <LayoutDashboard {...commonProps} color={iconColor} />;
     case 'playground':
-      return (
-        <TerminalSquare
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <TerminalSquare {...commonProps} color={iconColor} />;
     case 'chat':
-      return (
-        <MessageSquare
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <MessageSquare {...commonProps} color={iconColor} />;
     case 'token':
-      return (
-        <Key
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <Key {...commonProps} color={iconColor} />;
     case 'log':
-      return (
-        <BarChart3
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <BarChart3 {...commonProps} color={iconColor} />;
     case 'midjourney':
-      return (
-        <ImageIcon
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <ImageIcon {...commonProps} color={iconColor} />;
     case 'task':
-      return (
-        <CheckSquare
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <CheckSquare {...commonProps} color={iconColor} />;
     case 'topup':
-      return (
-        <CreditCard
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <CreditCard {...commonProps} color={iconColor} />;
     case 'channel':
-      return (
-        <Layers
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <Layers {...commonProps} color={iconColor} />;
     case 'redemption':
-      return (
-        <Gift
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <Gift {...commonProps} color={iconColor} />;
     case 'user':
     case 'personal':
-      return (
-        <User
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <User {...commonProps} color={iconColor} />;
     case 'models':
-      return (
-        <Package
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <Package {...commonProps} color={iconColor} />;
+    case 'deployment':
+      return <Server {...commonProps} color={iconColor} />;
+    case 'subscription':
+      return <CalendarClock {...commonProps} color={iconColor} />;
     case 'setting':
-      return (
-        <Settings
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <Settings {...commonProps} color={iconColor} />;
     default:
-      return (
-        <CircleUser
-          {...commonProps}
-          color={iconColor}
-        />
-      );
+      return <CircleUser {...commonProps} color={iconColor} />;
   }
 }
 
@@ -213,8 +176,9 @@ export const getModelCategories = (() => {
           model.model_name.toLowerCase().includes('gpt') ||
           model.model_name.toLowerCase().includes('dall-e') ||
           model.model_name.toLowerCase().includes('whisper') ||
-          model.model_name.toLowerCase().includes('tts') ||
-          model.model_name.toLowerCase().includes('text-') ||
+          model.model_name.toLowerCase().includes('tts-1') ||
+          model.model_name.toLowerCase().includes('text-embedding-3') ||
+          model.model_name.toLowerCase().includes('text-moderation') ||
           model.model_name.toLowerCase().includes('babbage') ||
           model.model_name.toLowerCase().includes('davinci') ||
           model.model_name.toLowerCase().includes('curie') ||
@@ -231,19 +195,31 @@ export const getModelCategories = (() => {
       gemini: {
         label: 'Gemini',
         icon: <Gemini.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('gemini'),
+        filter: (model) =>
+          model.model_name.toLowerCase().includes('gemini') ||
+          model.model_name.toLowerCase().includes('gemma') ||
+          model.model_name.toLowerCase().includes('learnlm') ||
+          model.model_name.toLowerCase().startsWith('embedding-') ||
+          model.model_name.toLowerCase().includes('text-embedding-004') ||
+          model.model_name.toLowerCase().includes('imagen-4') ||
+          model.model_name.toLowerCase().includes('veo-') ||
+          model.model_name.toLowerCase().includes('aqa'),
       },
       moonshot: {
         label: 'Moonshot',
         icon: <Moonshot />,
-        filter: (model) => model.model_name.toLowerCase().includes('moonshot'),
+        filter: (model) =>
+          model.model_name.toLowerCase().includes('moonshot') ||
+          model.model_name.toLowerCase().includes('kimi'),
       },
       zhipu: {
         label: t('智谱'),
         icon: <Zhipu.Color />,
         filter: (model) =>
           model.model_name.toLowerCase().includes('chatglm') ||
-          model.model_name.toLowerCase().includes('glm-'),
+          model.model_name.toLowerCase().includes('glm-') ||
+          model.model_name.toLowerCase().includes('cogview') ||
+          model.model_name.toLowerCase().includes('cogvideo'),
       },
       qwen: {
         label: t('通义千问'),
@@ -258,7 +234,9 @@ export const getModelCategories = (() => {
       minimax: {
         label: 'MiniMax',
         icon: <Minimax.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('abab'),
+        filter: (model) =>
+          model.model_name.toLowerCase().includes('abab') ||
+          model.model_name.toLowerCase().includes('minimax'),
       },
       baidu: {
         label: t('文心一言'),
@@ -283,7 +261,10 @@ export const getModelCategories = (() => {
       cohere: {
         label: 'Cohere',
         icon: <Cohere.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('command'),
+        filter: (model) =>
+          model.model_name.toLowerCase().includes('command') ||
+          model.model_name.toLowerCase().includes('c4ai-') ||
+          model.model_name.toLowerCase().includes('embed-'),
       },
       cloudflare: {
         label: 'Cloudflare',
@@ -295,11 +276,6 @@ export const getModelCategories = (() => {
         icon: <Ai360.Color />,
         filter: (model) => model.model_name.toLowerCase().includes('360'),
       },
-      yi: {
-        label: t('零一万物'),
-        icon: <Yi.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('yi'),
-      },
       jina: {
         label: 'Jina',
         icon: <Jina />,
@@ -308,7 +284,12 @@ export const getModelCategories = (() => {
       mistral: {
         label: 'Mistral AI',
         icon: <Mistral.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('mistral'),
+        filter: (model) =>
+          model.model_name.toLowerCase().includes('mistral') ||
+          model.model_name.toLowerCase().includes('codestral') ||
+          model.model_name.toLowerCase().includes('pixtral') ||
+          model.model_name.toLowerCase().includes('voxtral') ||
+          model.model_name.toLowerCase().includes('magistral'),
       },
       xai: {
         label: 'xAI',
@@ -324,6 +305,11 @@ export const getModelCategories = (() => {
         label: t('豆包'),
         icon: <Doubao.Color />,
         filter: (model) => model.model_name.toLowerCase().includes('doubao'),
+      },
+      yi: {
+        label: t('零一万物'),
+        icon: <Yi.Color />,
+        filter: (model) => model.model_name.toLowerCase().includes('yi'),
       },
     };
 
@@ -343,6 +329,7 @@ export function getChannelIcon(channelType) {
   switch (channelType) {
     case 1: // OpenAI
     case 3: // Azure OpenAI
+    case 57: // Codex
       return <OpenAI size={iconSize} />;
     case 2: // Midjourney Proxy
     case 5: // Midjourney Proxy Plus
@@ -379,6 +366,8 @@ export function getChannelIcon(channelType) {
       return <Xinference.Color size={iconSize} />;
     case 25: // Moonshot
       return <Moonshot size={iconSize} />;
+    case 27: // Perplexity
+      return <Perplexity.Color size={iconSize} />;
     case 20: // OpenRouter
       return <OpenRouter size={iconSize} />;
     case 19: // 360 智脑
@@ -407,6 +396,10 @@ export function getChannelIcon(channelType) {
       return <Kling.Color size={iconSize} />;
     case 51: // 即梦 Jimeng
       return <Jimeng.Color size={iconSize} />;
+    case 54: // 豆包视频 Doubao Video
+      return <Doubao.Color size={iconSize} />;
+    case 56: // Replicate
+      return <Replicate size={iconSize} />;
     case 8: // 自定义渠道
     case 22: // 知识库：FastGPT
       return <FastGPT.Color size={iconSize} />;
@@ -431,7 +424,7 @@ export function getLobeHubIcon(iconName, size = 14) {
   if (typeof iconName === 'string') iconName = iconName.trim();
   // 如果没有图标名称，返回 Avatar
   if (!iconName) {
-    return <Avatar size="extra-extra-small">?</Avatar>;
+    return <Avatar size='extra-extra-small'>?</Avatar>;
   }
 
   // 解析组件路径与点号链式属性
@@ -451,9 +444,12 @@ export function getLobeHubIcon(iconName, size = 14) {
   }
 
   // 失败兜底
-  if (!IconComponent || (typeof IconComponent !== 'function' && typeof IconComponent !== 'object')) {
+  if (
+    !IconComponent ||
+    (typeof IconComponent !== 'function' && typeof IconComponent !== 'object')
+  ) {
     const firstLetter = String(iconName).charAt(0).toUpperCase();
-    return <Avatar size="extra-extra-small">{firstLetter}</Avatar>;
+    return <Avatar size='extra-extra-small'>{firstLetter}</Avatar>;
   }
 
   // 解析点号链式属性，形如：key={...}、key='...'、key="..."、key=123、key、key=true/false
@@ -467,7 +463,10 @@ export function getLobeHubIcon(iconName, size = 14) {
       v = v.slice(1, -1).trim();
     }
     // 去除引号
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+    if (
+      (v.startsWith('"') && v.endsWith('"')) ||
+      (v.startsWith("'") && v.endsWith("'"))
+    ) {
       return v.slice(1, -1);
     }
     // 布尔
@@ -496,6 +495,106 @@ export function getLobeHubIcon(iconName, size = 14) {
   if (props.size == null && size != null) props.size = size;
 
   return <IconComponent {...props} />;
+}
+
+const oauthProviderIconMap = {
+  github: SiGithub,
+  gitlab: SiGitlab,
+  gitea: SiGitea,
+  google: SiGoogle,
+  discord: SiDiscord,
+  facebook: SiFacebook,
+  linkedin: SiLinkedin,
+  x: SiX,
+  twitter: SiX,
+  slack: SiSlack,
+  telegram: SiTelegram,
+  wechat: SiWechat,
+  keycloak: SiKeycloak,
+  nextcloud: SiNextcloud,
+  authentik: SiAuthentik,
+  openid: SiOpenid,
+  okta: SiOkta,
+  auth0: SiAuth0,
+  atlassian: SiAtlassian,
+  bitbucket: SiBitbucket,
+  notion: SiNotion,
+  twitch: SiTwitch,
+  reddit: SiReddit,
+  dropbox: SiDropbox,
+};
+
+function isHttpUrl(value) {
+  return /^https?:\/\//i.test(value || '');
+}
+
+function isSimpleEmoji(value) {
+  if (!value) return false;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 && trimmed.length <= 4 && !isHttpUrl(trimmed);
+}
+
+function normalizeOAuthIconKey(raw) {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/^ri:/, '')
+    .replace(/^react-icons:/, '')
+    .replace(/^si:/, '');
+}
+
+/**
+ * Render custom OAuth provider icon with react-icons or URL/emoji fallback.
+ * Supported formats:
+ * - react-icons simple key: github / gitlab / google / keycloak
+ * - prefixed key: ri:github / si:github
+ * - full URL image: https://example.com/logo.png
+ * - emoji: 🐱
+ */
+export function getOAuthProviderIcon(iconName, size = 20) {
+  const raw = String(iconName || '').trim();
+  const iconSize = Number(size) > 0 ? Number(size) : 20;
+
+  if (!raw) {
+    return <Layers size={iconSize} color='var(--semi-color-text-2)' />;
+  }
+
+  if (isHttpUrl(raw)) {
+    return (
+      <img
+        src={raw}
+        alt='provider icon'
+        width={iconSize}
+        height={iconSize}
+        style={{ borderRadius: 4, objectFit: 'cover' }}
+      />
+    );
+  }
+
+  if (isSimpleEmoji(raw)) {
+    return (
+      <span
+        style={{
+          width: iconSize,
+          height: iconSize,
+          lineHeight: `${iconSize}px`,
+          textAlign: 'center',
+          display: 'inline-block',
+          fontSize: Math.max(Math.floor(iconSize * 0.8), 14),
+        }}
+      >
+        {raw}
+      </span>
+    );
+  }
+
+  const key = normalizeOAuthIconKey(raw);
+  const IconComp = oauthProviderIconMap[key];
+  if (IconComp) {
+    return <IconComp size={iconSize} />;
+  }
+
+  return <Avatar size='extra-extra-small'>{raw.charAt(0).toUpperCase()}</Avatar>;
 }
 
 // 颜色列表
@@ -597,7 +696,6 @@ export const modelColorMap = {
   'claude-3-opus-20240229': 'rgb(255,132,31)', // 橙红色
   'claude-3-sonnet-20240229': 'rgb(253,135,93)', // 橙色
   'claude-3-haiku-20240307': 'rgb(255,175,146)', // 浅橙色
-  'claude-2.1': 'rgb(255,209,190)', // 浅橙色（略有区别）
 };
 
 export function modelToColor(modelName) {
@@ -765,7 +863,9 @@ const measureTextWidth = (
 };
 
 export function truncateText(text, maxWidth = 200) {
-  const isMobileScreen = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
+  const isMobileScreen = window.matchMedia(
+    `(max-width: ${MOBILE_BREAKPOINT - 1}px)`,
+  ).matches;
   if (!isMobileScreen) {
     return text;
   }
@@ -892,12 +992,25 @@ export function renderQuotaNumberWithDigit(num, digits = 2) {
   if (typeof num !== 'number' || isNaN(num)) {
     return 0;
   }
-  let displayInCurrency = localStorage.getItem('display_in_currency');
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
   num = num.toFixed(digits);
-  if (displayInCurrency) {
+  if (quotaDisplayType === 'CNY') {
+    return '¥' + num;
+  } else if (quotaDisplayType === 'USD') {
     return '$' + num;
+  } else if (quotaDisplayType === 'CUSTOM') {
+    const statusStr = localStorage.getItem('status');
+    let symbol = '¤';
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        symbol = s?.custom_currency_symbol || symbol;
+      }
+    } catch (e) {}
+    return symbol + num;
+  } else {
+    return num;
   }
-  return num;
 }
 
 export function renderNumberWithPoint(num) {
@@ -949,34 +1062,111 @@ export function getQuotaWithUnit(quota, digits = 6) {
 }
 
 export function renderQuotaWithAmount(amount) {
-  let displayInCurrency = localStorage.getItem('display_in_currency');
-  displayInCurrency = displayInCurrency === 'true';
-  if (displayInCurrency) {
-    return '$' + amount;
-  } else {
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+  if (quotaDisplayType === 'TOKENS') {
     return renderNumber(renderUnitWithQuota(amount));
   }
+  if (quotaDisplayType === 'CNY') {
+    return '¥' + amount;
+  } else if (quotaDisplayType === 'CUSTOM') {
+    const statusStr = localStorage.getItem('status');
+    let symbol = '¤';
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        symbol = s?.custom_currency_symbol || symbol;
+      }
+    } catch (e) {}
+    return symbol + amount;
+  }
+  return '$' + amount;
+}
+
+/**
+ * 获取当前货币配置信息
+ * @returns {Object} - { symbol, rate, type }
+ */
+export function getCurrencyConfig() {
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+  const statusStr = localStorage.getItem('status');
+
+  let symbol = '$';
+  let rate = 1;
+
+  if (quotaDisplayType === 'CNY') {
+    symbol = '¥';
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        rate = s?.usd_exchange_rate || 7;
+      }
+    } catch (e) {}
+  } else if (quotaDisplayType === 'CUSTOM') {
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        symbol = s?.custom_currency_symbol || '¤';
+        rate = s?.custom_currency_exchange_rate || 1;
+      }
+    } catch (e) {}
+  }
+
+  return { symbol, rate, type: quotaDisplayType };
+}
+
+/**
+ * 将美元金额转换为当前选择的货币
+ * @param {number} usdAmount - 美元金额
+ * @param {number} digits - 小数位数
+ * @returns {string} - 格式化后的货币字符串
+ */
+export function convertUSDToCurrency(usdAmount, digits = 2) {
+  const { symbol, rate } = getCurrencyConfig();
+  const convertedAmount = usdAmount * rate;
+  return symbol + convertedAmount.toFixed(digits);
 }
 
 export function renderQuota(quota, digits = 2) {
-
   let quotaPerUnit = localStorage.getItem('quota_per_unit');
-  let displayInCurrency = localStorage.getItem('display_in_currency');
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
   quotaPerUnit = parseFloat(quotaPerUnit);
-  displayInCurrency = displayInCurrency === 'true';
-  if (displayInCurrency) {
-    const result = quota / quotaPerUnit;
-    const fixedResult = result.toFixed(digits);
-
-    // 如果 toFixed 后结果为 0 但原始值不为 0，显示最小值
-    if (parseFloat(fixedResult) === 0 && quota > 0 && result > 0) {
-      const minValue = Math.pow(10, -digits);
-      return '$' + minValue.toFixed(digits);
-    }
-
-    return '$' + fixedResult;
+  if (quotaDisplayType === 'TOKENS') {
+    return renderNumber(quota);
   }
-  return renderNumber(quota);
+  const resultUSD = quota / quotaPerUnit;
+  let symbol = '$';
+  let value = resultUSD;
+  if (quotaDisplayType === 'CNY') {
+    const statusStr = localStorage.getItem('status');
+    let usdRate = 1;
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        usdRate = s?.usd_exchange_rate || 1;
+      }
+    } catch (e) {}
+    value = resultUSD * usdRate;
+    symbol = '¥';
+  } else if (quotaDisplayType === 'CUSTOM') {
+    const statusStr = localStorage.getItem('status');
+    let symbolCustom = '¤';
+    let rate = 1;
+    try {
+      if (statusStr) {
+        const s = JSON.parse(statusStr);
+        symbolCustom = s?.custom_currency_symbol || symbolCustom;
+        rate = s?.custom_currency_exchange_rate || rate;
+      }
+    } catch (e) {}
+    value = resultUSD * rate;
+    symbol = symbolCustom;
+  }
+  const fixedResult = value.toFixed(digits);
+  if (parseFloat(fixedResult) === 0 && quota > 0 && value > 0) {
+    const minValue = Math.pow(10, -digits);
+    return symbol + minValue.toFixed(digits);
+  }
+  return symbol + fixedResult;
 }
 
 function isValidGroupRatio(ratio) {
@@ -986,7 +1176,7 @@ function isValidGroupRatio(ratio) {
 /**
  * Helper function to get effective ratio and label
  * @param {number} groupRatio - The default group ratio
- * @param {number} user_group_ratio - The user-specific group ratio  
+ * @param {number} user_group_ratio - The user-specific group ratio
  * @returns {Object} - Object containing { ratio, label, useUserGroupRatio }
  */
 function getEffectiveRatio(groupRatio, user_group_ratio) {
@@ -999,7 +1189,7 @@ function getEffectiveRatio(groupRatio, user_group_ratio) {
   return {
     ratio: effectiveRatio,
     label: ratioLabel,
-    useUserGroupRatio: useUserGroupRatio
+    useUserGroupRatio: useUserGroupRatio,
   };
 }
 
@@ -1013,9 +1203,13 @@ function renderPriceSimpleCore({
   cacheRatio = 1.0,
   cacheCreationTokens = 0,
   cacheCreationRatio = 1.0,
+  cacheCreationTokens5m = 0,
+  cacheCreationRatio5m = 1.0,
+  cacheCreationTokens1h = 0,
+  cacheCreationRatio1h = 1.0,
   image = false,
   imageRatio = 1.0,
-  isSystemPromptOverride = false
+  isSystemPromptOverride = false,
 }) {
   const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(
     groupRatio,
@@ -1023,25 +1217,51 @@ function renderPriceSimpleCore({
   );
   const finalGroupRatio = effectiveGroupRatio;
 
+  const { symbol, rate } = getCurrencyConfig();
   if (modelPrice !== -1) {
-    return i18next.t('价格：${{price}} * {{ratioType}}：{{ratio}}', {
-      price: modelPrice,
+    const displayPrice = (modelPrice * rate).toFixed(6);
+    return i18next.t('价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}}', {
+      symbol: symbol,
+      price: displayPrice,
       ratioType: ratioLabel,
       ratio: finalGroupRatio,
     });
   }
+
+  const hasSplitCacheCreation =
+    cacheCreationTokens5m > 0 || cacheCreationTokens1h > 0;
+
+  const shouldShowLegacyCacheCreation =
+    !hasSplitCacheCreation && cacheCreationTokens !== 0;
+
+  const shouldShowCache = cacheTokens !== 0;
+  const shouldShowCacheCreation5m =
+    hasSplitCacheCreation && cacheCreationTokens5m > 0;
+  const shouldShowCacheCreation1h =
+    hasSplitCacheCreation && cacheCreationTokens1h > 0;
 
   const parts = [];
   // base: model ratio
   parts.push(i18next.t('模型: {{ratio}}'));
 
   // cache part (label differs when with image)
-  if (cacheTokens !== 0) {
+  if (shouldShowCache) {
     parts.push(i18next.t('缓存: {{cacheRatio}}'));
   }
 
-  // cache creation part (Claude specific if passed)
-  if (cacheCreationTokens !== 0) {
+  if (hasSplitCacheCreation) {
+    if (shouldShowCacheCreation5m && shouldShowCacheCreation1h) {
+      parts.push(
+        i18next.t(
+          '缓存创建: 5m {{cacheCreationRatio5m}} / 1h {{cacheCreationRatio1h}}',
+        ),
+      );
+    } else if (shouldShowCacheCreation5m) {
+      parts.push(i18next.t('缓存创建: 5m {{cacheCreationRatio5m}}'));
+    } else if (shouldShowCacheCreation1h) {
+      parts.push(i18next.t('缓存创建: 1h {{cacheCreationRatio1h}}'));
+    }
+  } else if (shouldShowLegacyCacheCreation) {
     parts.push(i18next.t('缓存创建: {{cacheCreationRatio}}'));
   }
 
@@ -1058,8 +1278,10 @@ function renderPriceSimpleCore({
     groupRatio: finalGroupRatio,
     cacheRatio: cacheRatio,
     cacheCreationRatio: cacheCreationRatio,
+    cacheCreationRatio5m: cacheCreationRatio5m,
+    cacheCreationRatio1h: cacheCreationRatio1h,
     imageRatio: imageRatio,
-  })
+  });
 
   if (isSystemPromptOverride) {
     result += '\n\r' + i18next.t('系统提示覆盖');
@@ -1090,17 +1312,28 @@ export function renderModelPrice(
   audioInputSeperatePrice = false,
   audioInputTokens = 0,
   audioInputPrice = 0,
+  imageGenerationCall = false,
+  imageGenerationCallPrice = 0,
 ) {
-  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(groupRatio, user_group_ratio);
+  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(
+    groupRatio,
+    user_group_ratio,
+  );
   groupRatio = effectiveGroupRatio;
 
+  // 获取货币配置
+  const { symbol, rate } = getCurrencyConfig();
+
   if (modelPrice !== -1) {
+    const displayPrice = (modelPrice * rate).toFixed(6);
+    const displayTotal = (modelPrice * groupRatio * rate).toFixed(6);
     return i18next.t(
-      '模型价格：${{price}} * {{ratioType}}：{{ratio}} = ${{total}}',
+      '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
-        price: modelPrice,
+        symbol: symbol,
+        price: displayPrice,
         ratio: groupRatio,
-        total: modelPrice * groupRatio,
+        total: displayTotal,
         ratioType: ratioLabel,
       },
     );
@@ -1129,25 +1362,31 @@ export function renderModelPrice(
       (audioInputTokens / 1000000) * audioInputPrice * groupRatio +
       (completionTokens / 1000000) * completionRatioPrice * groupRatio +
       (webSearchCallCount / 1000) * webSearchPrice * groupRatio +
-      (fileSearchCallCount / 1000) * fileSearchPrice * groupRatio;
+      (fileSearchCallCount / 1000) * fileSearchPrice * groupRatio +
+      imageGenerationCallPrice * groupRatio;
 
     return (
       <>
         <article>
           <p>
-            {i18next.t('输入价格：${{price}} / 1M tokens{{audioPrice}}', {
-              price: inputRatioPrice,
-              audioPrice: audioInputSeperatePrice
-                ? `，音频 $${audioInputPrice} / 1M tokens`
-                : '',
-            })}
+            {i18next.t(
+              '输入价格：{{symbol}}{{price}} / 1M tokens{{audioPrice}}',
+              {
+                symbol: symbol,
+                price: (inputRatioPrice * rate).toFixed(6),
+                audioPrice: audioInputSeperatePrice
+                  ? `，音频 ${symbol}${(audioInputPrice * rate).toFixed(6)} / 1M tokens`
+                  : '',
+              },
+            )}
           </p>
           <p>
             {i18next.t(
-              '输出价格：${{price}} * {{completionRatio}} = ${{total}} / 1M tokens (补全倍率: {{completionRatio}})',
+              '输出价格：{{symbol}}{{price}} * {{completionRatio}} = {{symbol}}{{total}} / 1M tokens (补全倍率: {{completionRatio}})',
               {
-                price: inputRatioPrice,
-                total: completionRatioPrice,
+                symbol: symbol,
+                price: (inputRatioPrice * rate).toFixed(6),
+                total: (completionRatioPrice * rate).toFixed(6),
                 completionRatio: completionRatio,
               },
             )}
@@ -1155,10 +1394,11 @@ export function renderModelPrice(
           {cacheTokens > 0 && (
             <p>
               {i18next.t(
-                '缓存价格：${{price}} * {{cacheRatio}} = ${{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
+                '缓存价格：{{symbol}}{{price}} * {{cacheRatio}} = {{symbol}}{{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
                 {
-                  price: inputRatioPrice,
-                  total: inputRatioPrice * cacheRatio,
+                  symbol: symbol,
+                  price: (inputRatioPrice * rate).toFixed(6),
+                  total: (inputRatioPrice * cacheRatio * rate).toFixed(6),
                   cacheRatio: cacheRatio,
                 },
               )}
@@ -1167,11 +1407,12 @@ export function renderModelPrice(
           {image && imageOutputTokens > 0 && (
             <p>
               {i18next.t(
-                '图片输入价格：${{price}} * {{ratio}} = ${{total}} / 1M tokens (图片倍率: {{imageRatio}})',
+                '图片输入价格：{{symbol}}{{price}} * {{ratio}} = {{symbol}}{{total}} / 1M tokens (图片倍率: {{imageRatio}})',
                 {
-                  price: imageRatioPrice,
+                  symbol: symbol,
+                  price: (imageRatioPrice * rate).toFixed(6),
                   ratio: groupRatio,
-                  total: imageRatioPrice * groupRatio,
+                  total: (imageRatioPrice * groupRatio * rate).toFixed(6),
                   imageRatio: imageRatio,
                 },
               )}
@@ -1179,69 +1420,83 @@ export function renderModelPrice(
           )}
           {webSearch && webSearchCallCount > 0 && (
             <p>
-              {i18next.t('Web搜索价格：${{price}} / 1K 次', {
-                price: webSearchPrice,
+              {i18next.t('Web搜索价格：{{symbol}}{{price}} / 1K 次', {
+                symbol: symbol,
+                price: (webSearchPrice * rate).toFixed(6),
               })}
             </p>
           )}
           {fileSearch && fileSearchCallCount > 0 && (
             <p>
-              {i18next.t('文件搜索价格：${{price}} / 1K 次', {
-                price: fileSearchPrice,
+              {i18next.t('文件搜索价格：{{symbol}}{{price}} / 1K 次', {
+                symbol: symbol,
+                price: (fileSearchPrice * rate).toFixed(6),
               })}
             </p>
           )}
-          <p></p>
+          {imageGenerationCall && imageGenerationCallPrice > 0 && (
+            <p>
+              {i18next.t('图片生成调用：{{symbol}}{{price}} / 1次', {
+                symbol: symbol,
+                price: (imageGenerationCallPrice * rate).toFixed(6),
+              })}
+            </p>
+          )}
           <p>
             {(() => {
               // 构建输入部分描述
               let inputDesc = '';
               if (image && imageOutputTokens > 0) {
                 inputDesc = i18next.t(
-                  '(输入 {{nonImageInput}} tokens + 图片输入 {{imageInput}} tokens * {{imageRatio}} / 1M tokens * ${{price}}',
+                  '(输入 {{nonImageInput}} tokens + 图片输入 {{imageInput}} tokens * {{imageRatio}} / 1M tokens * {{symbol}}{{price}}',
                   {
                     nonImageInput: inputTokens - imageOutputTokens,
                     imageInput: imageOutputTokens,
                     imageRatio: imageRatio,
-                    price: inputRatioPrice,
+                    symbol: symbol,
+                    price: (inputRatioPrice * rate).toFixed(6),
                   },
                 );
               } else if (cacheTokens > 0) {
                 inputDesc = i18next.t(
-                  '(输入 {{nonCacheInput}} tokens / 1M tokens * ${{price}} + 缓存 {{cacheInput}} tokens / 1M tokens * ${{cachePrice}}',
+                  '(输入 {{nonCacheInput}} tokens / 1M tokens * {{symbol}}{{price}} + 缓存 {{cacheInput}} tokens / 1M tokens * {{symbol}}{{cachePrice}}',
                   {
                     nonCacheInput: inputTokens - cacheTokens,
                     cacheInput: cacheTokens,
-                    price: inputRatioPrice,
-                    cachePrice: cacheRatioPrice,
+                    symbol: symbol,
+                    price: (inputRatioPrice * rate).toFixed(6),
+                    cachePrice: (cacheRatioPrice * rate).toFixed(6),
                   },
                 );
               } else if (audioInputSeperatePrice && audioInputTokens > 0) {
                 inputDesc = i18next.t(
-                  '(输入 {{nonAudioInput}} tokens / 1M tokens * ${{price}} + 音频输入 {{audioInput}} tokens / 1M tokens * ${{audioPrice}}',
+                  '(输入 {{nonAudioInput}} tokens / 1M tokens * {{symbol}}{{price}} + 音频输入 {{audioInput}} tokens / 1M tokens * {{symbol}}{{audioPrice}}',
                   {
                     nonAudioInput: inputTokens - audioInputTokens,
                     audioInput: audioInputTokens,
-                    price: inputRatioPrice,
-                    audioPrice: audioInputPrice,
+                    symbol: symbol,
+                    price: (inputRatioPrice * rate).toFixed(6),
+                    audioPrice: (audioInputPrice * rate).toFixed(6),
                   },
                 );
               } else {
                 inputDesc = i18next.t(
-                  '(输入 {{input}} tokens / 1M tokens * ${{price}}',
+                  '(输入 {{input}} tokens / 1M tokens * {{symbol}}{{price}}',
                   {
                     input: inputTokens,
-                    price: inputRatioPrice,
+                    symbol: symbol,
+                    price: (inputRatioPrice * rate).toFixed(6),
                   },
                 );
               }
 
               // 构建输出部分描述
               const outputDesc = i18next.t(
-                '输出 {{completion}} tokens / 1M tokens * ${{compPrice}}) * {{ratioType}} {{ratio}}',
+                '输出 {{completion}} tokens / 1M tokens * {{symbol}}{{compPrice}}) * {{ratioType}} {{ratio}}',
                 {
                   completion: completionTokens,
-                  compPrice: completionRatioPrice,
+                  symbol: symbol,
+                  compPrice: (completionRatioPrice * rate).toFixed(6),
                   ratio: groupRatio,
                   ratioType: ratioLabel,
                 },
@@ -1251,35 +1506,49 @@ export function renderModelPrice(
               const extraServices = [
                 webSearch && webSearchCallCount > 0
                   ? i18next.t(
-                    ' + Web搜索 {{count}}次 / 1K 次 * ${{price}} * {{ratioType}} {{ratio}}',
-                    {
-                      count: webSearchCallCount,
-                      price: webSearchPrice,
-                      ratio: groupRatio,
-                      ratioType: ratioLabel,
-                    },
-                  )
+                      ' + Web搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
+                      {
+                        count: webSearchCallCount,
+                        symbol: symbol,
+                        price: (webSearchPrice * rate).toFixed(6),
+                        ratio: groupRatio,
+                        ratioType: ratioLabel,
+                      },
+                    )
                   : '',
                 fileSearch && fileSearchCallCount > 0
                   ? i18next.t(
-                    ' + 文件搜索 {{count}}次 / 1K 次 * ${{price}} * {{ratioType}} {{ratio}}',
-                    {
-                      count: fileSearchCallCount,
-                      price: fileSearchPrice,
-                      ratio: groupRatio,
-                      ratioType: ratioLabel,
-                    },
-                  )
+                      ' + 文件搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}',
+                      {
+                        count: fileSearchCallCount,
+                        symbol: symbol,
+                        price: (fileSearchPrice * rate).toFixed(6),
+                        ratio: groupRatio,
+                        ratioType: ratioLabel,
+                      },
+                    )
+                  : '',
+                imageGenerationCall && imageGenerationCallPrice > 0
+                  ? i18next.t(
+                      ' + 图片生成调用 {{symbol}}{{price}} / 1次 * {{ratioType}} {{ratio}}',
+                      {
+                        symbol: symbol,
+                        price: (imageGenerationCallPrice * rate).toFixed(6),
+                        ratio: groupRatio,
+                        ratioType: ratioLabel,
+                      },
+                    )
                   : '',
               ].join('');
 
               return i18next.t(
-                '{{inputDesc}} + {{outputDesc}}{{extraServices}} = ${{total}}',
+                '{{inputDesc}} + {{outputDesc}}{{extraServices}} = {{symbol}}{{total}}',
                 {
                   inputDesc,
                   outputDesc,
                   extraServices,
-                  total: price.toFixed(6),
+                  symbol: symbol,
+                  total: (price * rate).toFixed(6),
                 },
               );
             })()}
@@ -1305,11 +1574,19 @@ export function renderLogContent(
   fileSearch = false,
   fileSearchCallCount = 0,
 ) {
-  const { ratio, label: ratioLabel, useUserGroupRatio: useUserGroupRatio } = getEffectiveRatio(groupRatio, user_group_ratio);
+  const {
+    ratio,
+    label: ratioLabel,
+    useUserGroupRatio: useUserGroupRatio,
+  } = getEffectiveRatio(groupRatio, user_group_ratio);
+
+  // 获取货币配置
+  const { symbol, rate } = getCurrencyConfig();
 
   if (modelPrice !== -1) {
-    return i18next.t('模型价格 ${{price}}，{{ratioType}} {{ratio}}', {
-      price: modelPrice,
+    return i18next.t('模型价格 {{symbol}}{{price}}，{{ratioType}} {{ratio}}', {
+      symbol: symbol,
+      price: (modelPrice * rate).toFixed(6),
       ratioType: ratioLabel,
       ratio,
     });
@@ -1362,6 +1639,10 @@ export function renderModelPriceSimple(
   cacheRatio = 1.0,
   cacheCreationTokens = 0,
   cacheCreationRatio = 1.0,
+  cacheCreationTokens5m = 0,
+  cacheCreationRatio5m = 1.0,
+  cacheCreationTokens1h = 0,
+  cacheCreationRatio1h = 1.0,
   image = false,
   imageRatio = 1.0,
   isSystemPromptOverride = false,
@@ -1376,9 +1657,13 @@ export function renderModelPriceSimple(
     cacheRatio,
     cacheCreationTokens,
     cacheCreationRatio,
+    cacheCreationTokens5m,
+    cacheCreationRatio5m,
+    cacheCreationTokens1h,
+    cacheCreationRatio1h,
     image,
     imageRatio,
-    isSystemPromptOverride
+    isSystemPromptOverride,
   });
 }
 
@@ -1397,16 +1682,24 @@ export function renderAudioModelPrice(
   cacheTokens = 0,
   cacheRatio = 1.0,
 ) {
-  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(groupRatio, user_group_ratio);
+  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(
+    groupRatio,
+    user_group_ratio,
+  );
   groupRatio = effectiveGroupRatio;
+
+  // 获取货币配置
+  const { symbol, rate } = getCurrencyConfig();
+
   // 1 ratio = $0.002 / 1K tokens
   if (modelPrice !== -1) {
     return i18next.t(
-      '模型价格：${{price}} * {{ratioType}}：{{ratio}} = ${{total}}',
+      '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
-        price: modelPrice,
+        symbol: symbol,
+        price: (modelPrice * rate).toFixed(6),
         ratio: groupRatio,
-        total: modelPrice * groupRatio,
+        total: (modelPrice * groupRatio * rate).toFixed(6),
         ratioType: ratioLabel,
       },
     );
@@ -1432,25 +1725,27 @@ export function renderAudioModelPrice(
     let audioPrice =
       (audioInputTokens / 1000000) * inputRatioPrice * audioRatio * groupRatio +
       (audioCompletionTokens / 1000000) *
-      inputRatioPrice *
-      audioRatio *
-      audioCompletionRatio *
-      groupRatio;
+        inputRatioPrice *
+        audioRatio *
+        audioCompletionRatio *
+        groupRatio;
     let price = textPrice + audioPrice;
     return (
       <>
         <article>
           <p>
-            {i18next.t('提示价格：${{price}} / 1M tokens', {
-              price: inputRatioPrice,
+            {i18next.t('提示价格：{{symbol}}{{price}} / 1M tokens', {
+              symbol: symbol,
+              price: (inputRatioPrice * rate).toFixed(6),
             })}
           </p>
           <p>
             {i18next.t(
-              '补全价格：${{price}} * {{completionRatio}} = ${{total}} / 1M tokens (补全倍率: {{completionRatio}})',
+              '补全价格：{{symbol}}{{price}} * {{completionRatio}} = {{symbol}}{{total}} / 1M tokens (补全倍率: {{completionRatio}})',
               {
-                price: inputRatioPrice,
-                total: completionRatioPrice,
+                symbol: symbol,
+                price: (inputRatioPrice * rate).toFixed(6),
+                total: (completionRatioPrice * rate).toFixed(6),
                 completionRatio: completionRatio,
               },
             )}
@@ -1458,10 +1753,11 @@ export function renderAudioModelPrice(
           {cacheTokens > 0 && (
             <p>
               {i18next.t(
-                '缓存价格：${{price}} * {{cacheRatio}} = ${{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
+                '缓存价格：{{symbol}}{{price}} * {{cacheRatio}} = {{symbol}}{{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
                 {
-                  price: inputRatioPrice,
-                  total: inputRatioPrice * cacheRatio,
+                  symbol: symbol,
+                  price: (inputRatioPrice * rate).toFixed(6),
+                  total: (inputRatioPrice * cacheRatio * rate).toFixed(6),
                   cacheRatio: cacheRatio,
                 },
               )}
@@ -1469,20 +1765,27 @@ export function renderAudioModelPrice(
           )}
           <p>
             {i18next.t(
-              '音频提示价格：${{price}} * {{audioRatio}} = ${{total}} / 1M tokens (音频倍率: {{audioRatio}})',
+              '音频提示价格：{{symbol}}{{price}} * {{audioRatio}} = {{symbol}}{{total}} / 1M tokens (音频倍率: {{audioRatio}})',
               {
-                price: inputRatioPrice,
-                total: inputRatioPrice * audioRatio,
+                symbol: symbol,
+                price: (inputRatioPrice * rate).toFixed(6),
+                total: (inputRatioPrice * audioRatio * rate).toFixed(6),
                 audioRatio: audioRatio,
               },
             )}
           </p>
           <p>
             {i18next.t(
-              '音频补全价格：${{price}} * {{audioRatio}} * {{audioCompRatio}} = ${{total}} / 1M tokens (音频补全倍率: {{audioCompRatio}})',
+              '音频补全价格：{{symbol}}{{price}} * {{audioRatio}} * {{audioCompRatio}} = {{symbol}}{{total}} / 1M tokens (音频补全倍率: {{audioCompRatio}})',
               {
-                price: inputRatioPrice,
-                total: inputRatioPrice * audioRatio * audioCompletionRatio,
+                symbol: symbol,
+                price: (inputRatioPrice * rate).toFixed(6),
+                total: (
+                  inputRatioPrice *
+                  audioRatio *
+                  audioCompletionRatio *
+                  rate
+                ).toFixed(6),
                 audioRatio: audioRatio,
                 audioCompRatio: audioCompletionRatio,
               },
@@ -1491,48 +1794,60 @@ export function renderAudioModelPrice(
           <p>
             {cacheTokens > 0
               ? i18next.t(
-                '文字提示 {{nonCacheInput}} tokens / 1M tokens * ${{price}} + 缓存 {{cacheInput}} tokens / 1M tokens * ${{cachePrice}} + 文字补全 {{completion}} tokens / 1M tokens * ${{compPrice}} = ${{total}}',
-                {
-                  nonCacheInput: inputTokens - cacheTokens,
-                  cacheInput: cacheTokens,
-                  cachePrice: inputRatioPrice * cacheRatio,
-                  price: inputRatioPrice,
-                  completion: completionTokens,
-                  compPrice: completionRatioPrice,
-                  total: textPrice.toFixed(6),
-                },
-              )
+                  '文字提示 {{nonCacheInput}} tokens / 1M tokens * {{symbol}}{{price}} + 缓存 {{cacheInput}} tokens / 1M tokens * {{symbol}}{{cachePrice}} + 文字补全 {{completion}} tokens / 1M tokens * {{symbol}}{{compPrice}} = {{symbol}}{{total}}',
+                  {
+                    nonCacheInput: inputTokens - cacheTokens,
+                    cacheInput: cacheTokens,
+                    symbol: symbol,
+                    cachePrice: (inputRatioPrice * cacheRatio * rate).toFixed(
+                      6,
+                    ),
+                    price: (inputRatioPrice * rate).toFixed(6),
+                    completion: completionTokens,
+                    compPrice: (completionRatioPrice * rate).toFixed(6),
+                    total: (textPrice * rate).toFixed(6),
+                  },
+                )
               : i18next.t(
-                '文字提示 {{input}} tokens / 1M tokens * ${{price}} + 文字补全 {{completion}} tokens / 1M tokens * ${{compPrice}} = ${{total}}',
-                {
-                  input: inputTokens,
-                  price: inputRatioPrice,
-                  completion: completionTokens,
-                  compPrice: completionRatioPrice,
-                  total: textPrice.toFixed(6),
-                },
-              )}
+                  '文字提示 {{input}} tokens / 1M tokens * {{symbol}}{{price}} + 文字补全 {{completion}} tokens / 1M tokens * {{symbol}}{{compPrice}} = {{symbol}}{{total}}',
+                  {
+                    input: inputTokens,
+                    symbol: symbol,
+                    price: (inputRatioPrice * rate).toFixed(6),
+                    completion: completionTokens,
+                    compPrice: (completionRatioPrice * rate).toFixed(6),
+                    total: (textPrice * rate).toFixed(6),
+                  },
+                )}
           </p>
           <p>
             {i18next.t(
-              '音频提示 {{input}} tokens / 1M tokens * ${{audioInputPrice}} + 音频补全 {{completion}} tokens / 1M tokens * ${{audioCompPrice}} = ${{total}}',
+              '音频提示 {{input}} tokens / 1M tokens * {{symbol}}{{audioInputPrice}} + 音频补全 {{completion}} tokens / 1M tokens * {{symbol}}{{audioCompPrice}} = {{symbol}}{{total}}',
               {
                 input: audioInputTokens,
                 completion: audioCompletionTokens,
-                audioInputPrice: audioRatio * inputRatioPrice,
-                audioCompPrice:
-                  audioRatio * audioCompletionRatio * inputRatioPrice,
-                total: audioPrice.toFixed(6),
+                symbol: symbol,
+                audioInputPrice: (audioRatio * inputRatioPrice * rate).toFixed(
+                  6,
+                ),
+                audioCompPrice: (
+                  audioRatio *
+                  audioCompletionRatio *
+                  inputRatioPrice *
+                  rate
+                ).toFixed(6),
+                total: (audioPrice * rate).toFixed(6),
               },
             )}
           </p>
           <p>
             {i18next.t(
-              '总价：文字价格 {{textPrice}} + 音频价格 {{audioPrice}} = ${{total}}',
+              '总价：文字价格 {{textPrice}} + 音频价格 {{audioPrice}} = {{symbol}}{{total}}',
               {
-                total: price.toFixed(6),
-                textPrice: textPrice.toFixed(6),
-                audioPrice: audioPrice.toFixed(6),
+                symbol: symbol,
+                total: (price * rate).toFixed(6),
+                textPrice: (textPrice * rate).toFixed(6),
+                audioPrice: (audioPrice * rate).toFixed(6),
               },
             )}
           </p>
@@ -1544,12 +1859,9 @@ export function renderAudioModelPrice(
 }
 
 export function renderQuotaWithPrompt(quota, digits) {
-  let displayInCurrency = localStorage.getItem('display_in_currency');
-  displayInCurrency = displayInCurrency === 'true';
-  if (displayInCurrency) {
-    return (
-      i18next.t('等价金额：') + renderQuota(quota, digits)
-    );
+  const quotaDisplayType = localStorage.getItem('quota_display_type') || 'USD';
+  if (quotaDisplayType !== 'TOKENS') {
+    return i18next.t('等价金额：') + renderQuota(quota, digits);
   }
   return '';
 }
@@ -1566,18 +1878,29 @@ export function renderClaudeModelPrice(
   cacheRatio = 1.0,
   cacheCreationTokens = 0,
   cacheCreationRatio = 1.0,
+  cacheCreationTokens5m = 0,
+  cacheCreationRatio5m = 1.0,
+  cacheCreationTokens1h = 0,
+  cacheCreationRatio1h = 1.0,
 ) {
-  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(groupRatio, user_group_ratio);
+  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(
+    groupRatio,
+    user_group_ratio,
+  );
   groupRatio = effectiveGroupRatio;
+
+  // 获取货币配置
+  const { symbol, rate } = getCurrencyConfig();
 
   if (modelPrice !== -1) {
     return i18next.t(
-      '模型价格：${{price}} * {{ratioType}}：{{ratio}} = ${{total}}',
+      '模型价格：{{symbol}}{{price}} * {{ratioType}}：{{ratio}} = {{symbol}}{{total}}',
       {
-        price: modelPrice,
+        symbol: symbol,
+        price: (modelPrice * rate).toFixed(6),
         ratioType: ratioLabel,
         ratio: groupRatio,
-        total: modelPrice * groupRatio,
+        total: (modelPrice * groupRatio * rate).toFixed(6),
       },
     );
   } else {
@@ -1588,97 +1911,225 @@ export function renderClaudeModelPrice(
     const completionRatioValue = completionRatio || 0;
     const inputRatioPrice = modelRatio * 2.0;
     const completionRatioPrice = modelRatio * 2.0 * completionRatioValue;
-    let cacheRatioPrice = (modelRatio * 2.0 * cacheRatio).toFixed(2);
-    let cacheCreationRatioPrice = modelRatio * 2.0 * cacheCreationRatio;
+    const cacheRatioPrice = modelRatio * 2.0 * cacheRatio;
+    const cacheCreationRatioPrice = modelRatio * 2.0 * cacheCreationRatio;
+    const cacheCreationRatioPrice5m = modelRatio * 2.0 * cacheCreationRatio5m;
+    const cacheCreationRatioPrice1h = modelRatio * 2.0 * cacheCreationRatio1h;
+
+    const hasSplitCacheCreation =
+      cacheCreationTokens5m > 0 || cacheCreationTokens1h > 0;
+
+    const shouldShowCache = cacheTokens > 0;
+    const shouldShowLegacyCacheCreation =
+      !hasSplitCacheCreation && cacheCreationTokens > 0;
+    const shouldShowCacheCreation5m =
+      hasSplitCacheCreation && cacheCreationTokens5m > 0;
+    const shouldShowCacheCreation1h =
+      hasSplitCacheCreation && cacheCreationTokens1h > 0;
 
     // Calculate effective input tokens (non-cached + cached with ratio applied + cache creation with ratio applied)
     const nonCachedTokens = inputTokens;
+    const legacyCacheCreationTokens = hasSplitCacheCreation
+      ? 0
+      : cacheCreationTokens;
     const effectiveInputTokens =
       nonCachedTokens +
       cacheTokens * cacheRatio +
-      cacheCreationTokens * cacheCreationRatio;
+      legacyCacheCreationTokens * cacheCreationRatio +
+      cacheCreationTokens5m * cacheCreationRatio5m +
+      cacheCreationTokens1h * cacheCreationRatio1h;
 
     let price =
       (effectiveInputTokens / 1000000) * inputRatioPrice * groupRatio +
       (completionTokens / 1000000) * completionRatioPrice * groupRatio;
 
+    const inputUnitPrice = inputRatioPrice * rate;
+    const completionUnitPrice = completionRatioPrice * rate;
+    const cacheUnitPrice = cacheRatioPrice * rate;
+    const cacheCreationUnitPrice = cacheCreationRatioPrice * rate;
+    const cacheCreationUnitPrice5m = cacheCreationRatioPrice5m * rate;
+    const cacheCreationUnitPrice1h = cacheCreationRatioPrice1h * rate;
+    const cacheCreationUnitPriceTotal =
+      cacheCreationUnitPrice5m + cacheCreationUnitPrice1h;
+
+    const breakdownSegments = [
+      i18next.t('提示 {{input}} tokens / 1M tokens * {{symbol}}{{price}}', {
+        input: inputTokens,
+        symbol,
+        price: inputUnitPrice.toFixed(6),
+      }),
+    ];
+
+    if (shouldShowCache) {
+      breakdownSegments.push(
+        i18next.t(
+          '缓存 {{tokens}} tokens / 1M tokens * {{symbol}}{{price}} (倍率: {{ratio}})',
+          {
+            tokens: cacheTokens,
+            symbol,
+            price: cacheUnitPrice.toFixed(6),
+            ratio: cacheRatio,
+          },
+        ),
+      );
+    }
+
+    if (shouldShowLegacyCacheCreation) {
+      breakdownSegments.push(
+        i18next.t(
+          '缓存创建 {{tokens}} tokens / 1M tokens * {{symbol}}{{price}} (倍率: {{ratio}})',
+          {
+            tokens: cacheCreationTokens,
+            symbol,
+            price: cacheCreationUnitPrice.toFixed(6),
+            ratio: cacheCreationRatio,
+          },
+        ),
+      );
+    }
+
+    if (shouldShowCacheCreation5m) {
+      breakdownSegments.push(
+        i18next.t(
+          '5m缓存创建 {{tokens}} tokens / 1M tokens * {{symbol}}{{price}} (倍率: {{ratio}})',
+          {
+            tokens: cacheCreationTokens5m,
+            symbol,
+            price: cacheCreationUnitPrice5m.toFixed(6),
+            ratio: cacheCreationRatio5m,
+          },
+        ),
+      );
+    }
+
+    if (shouldShowCacheCreation1h) {
+      breakdownSegments.push(
+        i18next.t(
+          '1h缓存创建 {{tokens}} tokens / 1M tokens * {{symbol}}{{price}} (倍率: {{ratio}})',
+          {
+            tokens: cacheCreationTokens1h,
+            symbol,
+            price: cacheCreationUnitPrice1h.toFixed(6),
+            ratio: cacheCreationRatio1h,
+          },
+        ),
+      );
+    }
+
+    breakdownSegments.push(
+      i18next.t(
+        '补全 {{completion}} tokens / 1M tokens * {{symbol}}{{price}}',
+        {
+          completion: completionTokens,
+          symbol,
+          price: completionUnitPrice.toFixed(6),
+        },
+      ),
+    );
+
+    const breakdownText = breakdownSegments.join(' + ');
+
     return (
       <>
         <article>
           <p>
-            {i18next.t('提示价格：${{price}} / 1M tokens', {
-              price: inputRatioPrice,
+            {i18next.t('提示价格：{{symbol}}{{price}} / 1M tokens', {
+              symbol: symbol,
+              price: (inputRatioPrice * rate).toFixed(6),
             })}
           </p>
           <p>
             {i18next.t(
-              '补全价格：${{price}} * {{ratio}} = ${{total}} / 1M tokens',
+              '补全价格：{{symbol}}{{price}} * {{ratio}} = {{symbol}}{{total}} / 1M tokens',
               {
-                price: inputRatioPrice,
+                symbol: symbol,
+                price: (inputRatioPrice * rate).toFixed(6),
                 ratio: completionRatio,
-                total: completionRatioPrice,
+                total: (completionRatioPrice * rate).toFixed(6),
               },
             )}
           </p>
-          {cacheTokens > 0 && (
+          {shouldShowCache && (
             <p>
               {i18next.t(
-                '缓存价格：${{price}} * {{ratio}} = ${{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
+                '缓存价格：{{symbol}}{{price}} * {{ratio}} = {{symbol}}{{total}} / 1M tokens (缓存倍率: {{cacheRatio}})',
                 {
-                  price: inputRatioPrice,
+                  symbol: symbol,
+                  price: (inputRatioPrice * rate).toFixed(6),
                   ratio: cacheRatio,
-                  total: cacheRatioPrice,
+                  total: cacheUnitPrice.toFixed(6),
                   cacheRatio: cacheRatio,
                 },
               )}
             </p>
           )}
-          {cacheCreationTokens > 0 && (
+          {shouldShowLegacyCacheCreation && (
             <p>
               {i18next.t(
-                '缓存创建价格：${{price}} * {{ratio}} = ${{total}} / 1M tokens (缓存创建倍率: {{cacheCreationRatio}})',
+                '缓存创建价格：{{symbol}}{{price}} * {{ratio}} = {{symbol}}{{total}} / 1M tokens (缓存创建倍率: {{cacheCreationRatio}})',
                 {
-                  price: inputRatioPrice,
+                  symbol: symbol,
+                  price: (inputRatioPrice * rate).toFixed(6),
                   ratio: cacheCreationRatio,
-                  total: cacheCreationRatioPrice,
+                  total: cacheCreationUnitPrice.toFixed(6),
                   cacheCreationRatio: cacheCreationRatio,
+                },
+              )}
+            </p>
+          )}
+          {shouldShowCacheCreation5m && (
+            <p>
+              {i18next.t(
+                '5m缓存创建价格：{{symbol}}{{price}} * {{ratio}} = {{symbol}}{{total}} / 1M tokens (5m缓存创建倍率: {{cacheCreationRatio5m}})',
+                {
+                  symbol: symbol,
+                  price: (inputRatioPrice * rate).toFixed(6),
+                  ratio: cacheCreationRatio5m,
+                  total: cacheCreationUnitPrice5m.toFixed(6),
+                  cacheCreationRatio5m: cacheCreationRatio5m,
+                },
+              )}
+            </p>
+          )}
+          {shouldShowCacheCreation1h && (
+            <p>
+              {i18next.t(
+                '1h缓存创建价格：{{symbol}}{{price}} * {{ratio}} = {{symbol}}{{total}} / 1M tokens (1h缓存创建倍率: {{cacheCreationRatio1h}})',
+                {
+                  symbol: symbol,
+                  price: (inputRatioPrice * rate).toFixed(6),
+                  ratio: cacheCreationRatio1h,
+                  total: cacheCreationUnitPrice1h.toFixed(6),
+                  cacheCreationRatio1h: cacheCreationRatio1h,
+                },
+              )}
+            </p>
+          )}
+          {shouldShowCacheCreation5m && shouldShowCacheCreation1h && (
+            <p>
+              {i18next.t(
+                '缓存创建价格合计：5m {{symbol}}{{five}} + 1h {{symbol}}{{one}} = {{symbol}}{{total}} / 1M tokens',
+                {
+                  symbol: symbol,
+                  five: cacheCreationUnitPrice5m.toFixed(6),
+                  one: cacheCreationUnitPrice1h.toFixed(6),
+                  total: cacheCreationUnitPriceTotal.toFixed(6),
                 },
               )}
             </p>
           )}
           <p></p>
           <p>
-            {cacheTokens > 0 || cacheCreationTokens > 0
-              ? i18next.t(
-                '提示 {{nonCacheInput}} tokens / 1M tokens * ${{price}} + 缓存 {{cacheInput}} tokens / 1M tokens * ${{cachePrice}} + 缓存创建 {{cacheCreationInput}} tokens / 1M tokens * ${{cacheCreationPrice}} + 补全 {{completion}} tokens / 1M tokens * ${{compPrice}} * {{ratioType}} {{ratio}} = ${{total}}',
-                {
-                  nonCacheInput: nonCachedTokens,
-                  cacheInput: cacheTokens,
-                  cacheRatio: cacheRatio,
-                  cacheCreationInput: cacheCreationTokens,
-                  cacheCreationRatio: cacheCreationRatio,
-                  cachePrice: cacheRatioPrice,
-                  cacheCreationPrice: cacheCreationRatioPrice,
-                  price: inputRatioPrice,
-                  completion: completionTokens,
-                  compPrice: completionRatioPrice,
-                  ratio: groupRatio,
-                  ratioType: ratioLabel,
-                  total: price.toFixed(6),
-                },
-              )
-              : i18next.t(
-                '提示 {{input}} tokens / 1M tokens * ${{price}} + 补全 {{completion}} tokens / 1M tokens * ${{compPrice}} * {{ratioType}} {{ratio}} = ${{total}}',
-                {
-                  input: inputTokens,
-                  price: inputRatioPrice,
-                  completion: completionTokens,
-                  compPrice: completionRatioPrice,
-                  ratio: groupRatio,
-                  ratioType: ratioLabel,
-                  total: price.toFixed(6),
-                },
-              )}
+            {i18next.t(
+              '{{breakdown}} * {{ratioType}} {{ratio}} = {{symbol}}{{total}}',
+              {
+                breakdown: breakdownText,
+                ratioType: ratioLabel,
+                ratio: groupRatio,
+                symbol: symbol,
+                total: (price * rate).toFixed(6),
+              },
+            )}
           </p>
           <p>{i18next.t('仅供参考，以实际扣费为准')}</p>
         </article>
@@ -1695,28 +2146,80 @@ export function renderClaudeLogContent(
   user_group_ratio,
   cacheRatio = 1.0,
   cacheCreationRatio = 1.0,
+  cacheCreationTokens5m = 0,
+  cacheCreationRatio5m = 1.0,
+  cacheCreationTokens1h = 0,
+  cacheCreationRatio1h = 1.0,
 ) {
-  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(groupRatio, user_group_ratio);
+  const { ratio: effectiveGroupRatio, label: ratioLabel } = getEffectiveRatio(
+    groupRatio,
+    user_group_ratio,
+  );
   groupRatio = effectiveGroupRatio;
 
+  // 获取货币配置
+  const { symbol, rate } = getCurrencyConfig();
+
   if (modelPrice !== -1) {
-    return i18next.t('模型价格 ${{price}}，{{ratioType}} {{ratio}}', {
-      price: modelPrice,
+    return i18next.t('模型价格 {{symbol}}{{price}}，{{ratioType}} {{ratio}}', {
+      symbol: symbol,
+      price: (modelPrice * rate).toFixed(6),
       ratioType: ratioLabel,
       ratio: groupRatio,
     });
   } else {
-    return i18next.t(
-      '模型倍率 {{modelRatio}}，输出倍率 {{completionRatio}}，缓存倍率 {{cacheRatio}}，缓存创建倍率 {{cacheCreationRatio}}，{{ratioType}} {{ratio}}',
-      {
-        modelRatio: modelRatio,
-        completionRatio: completionRatio,
-        cacheRatio: cacheRatio,
-        cacheCreationRatio: cacheCreationRatio,
+    const hasSplitCacheCreation =
+      cacheCreationTokens5m > 0 || cacheCreationTokens1h > 0;
+    const shouldShowCacheCreation5m =
+      hasSplitCacheCreation && cacheCreationTokens5m > 0;
+    const shouldShowCacheCreation1h =
+      hasSplitCacheCreation && cacheCreationTokens1h > 0;
+
+    let cacheCreationPart = null;
+    if (hasSplitCacheCreation) {
+      if (shouldShowCacheCreation5m && shouldShowCacheCreation1h) {
+        cacheCreationPart = i18next.t(
+          '缓存创建倍率 5m {{cacheCreationRatio5m}} / 1h {{cacheCreationRatio1h}}',
+          {
+            cacheCreationRatio5m,
+            cacheCreationRatio1h,
+          },
+        );
+      } else if (shouldShowCacheCreation5m) {
+        cacheCreationPart = i18next.t(
+          '缓存创建倍率 5m {{cacheCreationRatio5m}}',
+          {
+            cacheCreationRatio5m,
+          },
+        );
+      } else if (shouldShowCacheCreation1h) {
+        cacheCreationPart = i18next.t(
+          '缓存创建倍率 1h {{cacheCreationRatio1h}}',
+          {
+            cacheCreationRatio1h,
+          },
+        );
+      }
+    }
+
+    if (!cacheCreationPart) {
+      cacheCreationPart = i18next.t('缓存创建倍率 {{cacheCreationRatio}}', {
+        cacheCreationRatio,
+      });
+    }
+
+    const parts = [
+      i18next.t('模型倍率 {{modelRatio}}', { modelRatio }),
+      i18next.t('输出倍率 {{completionRatio}}', { completionRatio }),
+      i18next.t('缓存倍率 {{cacheRatio}}', { cacheRatio }),
+      cacheCreationPart,
+      i18next.t('{{ratioType}} {{ratio}}', {
         ratioType: ratioLabel,
         ratio: groupRatio,
-      },
-    );
+      }),
+    ];
+
+    return parts.join('，');
   }
 }
 

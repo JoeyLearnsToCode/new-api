@@ -93,6 +93,49 @@ export function Mermaid(props) {
   );
 }
 
+function SandboxedHtmlPreview({ code }) {
+  const iframeRef = useRef(null);
+  const [iframeHeight, setIframeHeight] = useState(150);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const handleLoad = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (doc) {
+          const height =
+            doc.documentElement.scrollHeight || doc.body.scrollHeight;
+          setIframeHeight(Math.min(Math.max(height + 16, 60), 600));
+        }
+      } catch {
+        // sandbox restrictions may prevent access, that's fine
+      }
+    };
+
+    iframe.addEventListener('load', handleLoad);
+    return () => iframe.removeEventListener('load', handleLoad);
+  }, [code]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      sandbox='allow-same-origin'
+      srcDoc={code}
+      title='HTML Preview'
+      style={{
+        width: '100%',
+        height: `${iframeHeight}px`,
+        border: 'none',
+        overflow: 'auto',
+        backgroundColor: '#fff',
+        borderRadius: '4px',
+      }}
+    />
+  );
+}
+
 export function PreCode(props) {
   const ref = useRef(null);
   const [mermaidCode, setMermaidCode] = useState('');
@@ -160,7 +203,7 @@ export function PreCode(props) {
         }}
       >
         <div
-          className="copy-code-button"
+          className='copy-code-button'
           style={{
             position: 'absolute',
             top: '8px',
@@ -174,14 +217,15 @@ export function PreCode(props) {
         >
           <Tooltip content={t('复制代码')}>
             <Button
-              size="small"
-              theme="borderless"
+              size='small'
+              theme='borderless'
               icon={<IconCopy />}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 if (ref.current) {
-                  const code = ref.current.querySelector('code')?.innerText ?? '';
+                  const codeElement = ref.current.querySelector('code');
+                  const code = codeElement?.textContent ?? '';
                   copy(code).then((success) => {
                     if (success) {
                       Toast.success(t('代码已复制到剪贴板'));
@@ -217,10 +261,16 @@ export function PreCode(props) {
             backgroundColor: 'var(--semi-color-bg-1)',
           }}
         >
-          <div style={{ marginBottom: '8px', fontSize: '12px', color: 'var(--semi-color-text-2)' }}>
+          <div
+            style={{
+              marginBottom: '8px',
+              fontSize: '12px',
+              color: 'var(--semi-color-text-2)',
+            }}
+          >
             HTML预览:
           </div>
-          <div dangerouslySetInnerHTML={{ __html: htmlCode }} />
+          <SandboxedHtmlPreview code={htmlCode} />
         </div>
       )}
     </>
@@ -258,7 +308,7 @@ function CustomCode(props) {
             justifyContent: 'center',
           }}
         >
-          <Button size="small" onClick={toggleCollapsed} theme="solid">
+          <Button size='small' onClick={toggleCollapsed} theme='solid'>
             {t('显示更多')}
           </Button>
         </div>
@@ -367,7 +417,16 @@ function _MarkdownContent(props) {
       components={{
         pre: PreCode,
         code: CustomCode,
-        p: (pProps) => <p {...pProps} dir="auto" style={{ lineHeight: '1.6', color: isUserMessage ? 'white' : 'inherit' }} />,
+        p: (pProps) => (
+          <p
+            {...pProps}
+            dir='auto'
+            style={{
+              lineHeight: '1.6',
+              color: isUserMessage ? 'white' : 'inherit',
+            }}
+          />
+        ),
         a: (aProps) => {
           const href = aProps.href || '';
           if (/\.(aac|mp3|opus|wav)$/.test(href)) {
@@ -379,13 +438,16 @@ function _MarkdownContent(props) {
           }
           if (/\.(3gp|3g2|webm|ogv|mpeg|mp4|avi)$/.test(href)) {
             return (
-              <video controls style={{ width: '100%', maxWidth: '100%', margin: '12px 0' }}>
+              <video
+                controls
+                style={{ width: '100%', maxWidth: '100%', margin: '12px 0' }}
+              >
                 <source src={href} />
               </video>
             );
           }
           const isInternal = /^\/#/i.test(href);
-          const target = isInternal ? '_self' : aProps.target ?? '_blank';
+          const target = isInternal ? '_self' : (aProps.target ?? '_blank');
           return (
             <a
               {...aProps}
@@ -403,20 +465,84 @@ function _MarkdownContent(props) {
             />
           );
         },
-        h1: (props) => <h1 {...props} style={{ fontSize: '24px', fontWeight: 'bold', margin: '20px 0 12px 0', color: isUserMessage ? 'white' : 'var(--semi-color-text-0)' }} />,
-        h2: (props) => <h2 {...props} style={{ fontSize: '20px', fontWeight: 'bold', margin: '18px 0 10px 0', color: isUserMessage ? 'white' : 'var(--semi-color-text-0)' }} />,
-        h3: (props) => <h3 {...props} style={{ fontSize: '18px', fontWeight: 'bold', margin: '16px 0 8px 0', color: isUserMessage ? 'white' : 'var(--semi-color-text-0)' }} />,
-        h4: (props) => <h4 {...props} style={{ fontSize: '16px', fontWeight: 'bold', margin: '14px 0 6px 0', color: isUserMessage ? 'white' : 'var(--semi-color-text-0)' }} />,
-        h5: (props) => <h5 {...props} style={{ fontSize: '14px', fontWeight: 'bold', margin: '12px 0 4px 0', color: isUserMessage ? 'white' : 'var(--semi-color-text-0)' }} />,
-        h6: (props) => <h6 {...props} style={{ fontSize: '13px', fontWeight: 'bold', margin: '10px 0 4px 0', color: isUserMessage ? 'white' : 'var(--semi-color-text-0)' }} />,
+        h1: (props) => (
+          <h1
+            {...props}
+            style={{
+              fontSize: '24px',
+              fontWeight: 'bold',
+              margin: '20px 0 12px 0',
+              color: isUserMessage ? 'white' : 'var(--semi-color-text-0)',
+            }}
+          />
+        ),
+        h2: (props) => (
+          <h2
+            {...props}
+            style={{
+              fontSize: '20px',
+              fontWeight: 'bold',
+              margin: '18px 0 10px 0',
+              color: isUserMessage ? 'white' : 'var(--semi-color-text-0)',
+            }}
+          />
+        ),
+        h3: (props) => (
+          <h3
+            {...props}
+            style={{
+              fontSize: '18px',
+              fontWeight: 'bold',
+              margin: '16px 0 8px 0',
+              color: isUserMessage ? 'white' : 'var(--semi-color-text-0)',
+            }}
+          />
+        ),
+        h4: (props) => (
+          <h4
+            {...props}
+            style={{
+              fontSize: '16px',
+              fontWeight: 'bold',
+              margin: '14px 0 6px 0',
+              color: isUserMessage ? 'white' : 'var(--semi-color-text-0)',
+            }}
+          />
+        ),
+        h5: (props) => (
+          <h5
+            {...props}
+            style={{
+              fontSize: '14px',
+              fontWeight: 'bold',
+              margin: '12px 0 4px 0',
+              color: isUserMessage ? 'white' : 'var(--semi-color-text-0)',
+            }}
+          />
+        ),
+        h6: (props) => (
+          <h6
+            {...props}
+            style={{
+              fontSize: '13px',
+              fontWeight: 'bold',
+              margin: '10px 0 4px 0',
+              color: isUserMessage ? 'white' : 'var(--semi-color-text-0)',
+            }}
+          />
+        ),
         blockquote: (props) => (
           <blockquote
             {...props}
             style={{
-              borderLeft: isUserMessage ? '4px solid rgba(255, 255, 255, 0.5)' : '4px solid var(--semi-color-primary)',
+              borderLeft: isUserMessage
+                ? '4px solid rgba(255, 255, 255, 0.5)'
+                : '4px solid var(--semi-color-primary)',
               paddingLeft: '16px',
               margin: '12px 0',
-              backgroundColor: isUserMessage ? 'rgba(255, 255, 255, 0.1)' : 'var(--semi-color-fill-0)',
+              backgroundColor: isUserMessage
+                ? 'rgba(255, 255, 255, 0.1)'
+                : 'var(--semi-color-fill-0)',
               padding: '8px 16px',
               borderRadius: '0 4px 4px 0',
               fontStyle: 'italic',
@@ -424,9 +550,36 @@ function _MarkdownContent(props) {
             }}
           />
         ),
-        ul: (props) => <ul {...props} style={{ margin: '8px 0', paddingLeft: '20px', color: isUserMessage ? 'white' : 'inherit' }} />,
-        ol: (props) => <ol {...props} style={{ margin: '8px 0', paddingLeft: '20px', color: isUserMessage ? 'white' : 'inherit' }} />,
-        li: (props) => <li {...props} style={{ margin: '4px 0', lineHeight: '1.6', color: isUserMessage ? 'white' : 'inherit' }} />,
+        ul: (props) => (
+          <ul
+            {...props}
+            style={{
+              margin: '8px 0',
+              paddingLeft: '20px',
+              color: isUserMessage ? 'white' : 'inherit',
+            }}
+          />
+        ),
+        ol: (props) => (
+          <ol
+            {...props}
+            style={{
+              margin: '8px 0',
+              paddingLeft: '20px',
+              color: isUserMessage ? 'white' : 'inherit',
+            }}
+          />
+        ),
+        li: (props) => (
+          <li
+            {...props}
+            style={{
+              margin: '4px 0',
+              lineHeight: '1.6',
+              color: isUserMessage ? 'white' : 'inherit',
+            }}
+          />
+        ),
         table: (props) => (
           <div style={{ overflow: 'auto', margin: '12px 0' }}>
             <table
@@ -434,7 +587,9 @@ function _MarkdownContent(props) {
               style={{
                 width: '100%',
                 borderCollapse: 'collapse',
-                border: isUserMessage ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid var(--semi-color-border)',
+                border: isUserMessage
+                  ? '1px solid rgba(255, 255, 255, 0.3)'
+                  : '1px solid var(--semi-color-border)',
                 borderRadius: '6px',
                 overflow: 'hidden',
               }}
@@ -446,8 +601,12 @@ function _MarkdownContent(props) {
             {...props}
             style={{
               padding: '8px 12px',
-              backgroundColor: isUserMessage ? 'rgba(255, 255, 255, 0.2)' : 'var(--semi-color-fill-1)',
-              border: isUserMessage ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid var(--semi-color-border)',
+              backgroundColor: isUserMessage
+                ? 'rgba(255, 255, 255, 0.2)'
+                : 'var(--semi-color-fill-1)',
+              border: isUserMessage
+                ? '1px solid rgba(255, 255, 255, 0.3)'
+                : '1px solid var(--semi-color-border)',
               fontWeight: 'bold',
               textAlign: 'left',
               color: isUserMessage ? 'white' : 'inherit',
@@ -459,7 +618,9 @@ function _MarkdownContent(props) {
             {...props}
             style={{
               padding: '8px 12px',
-              border: isUserMessage ? '1px solid rgba(255, 255, 255, 0.3)' : '1px solid var(--semi-color-border)',
+              border: isUserMessage
+                ? '1px solid rgba(255, 255, 255, 0.3)'
+                : '1px solid var(--semi-color-border)',
               color: isUserMessage ? 'white' : 'inherit',
             }}
           />
@@ -496,25 +657,29 @@ export function MarkdownRenderer(props) {
         color: 'var(--semi-color-text-0)',
         ...style,
       }}
-      dir="auto"
+      dir='auto'
       {...otherProps}
     >
       {loading ? (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '16px',
-          color: 'var(--semi-color-text-2)',
-        }}>
-          <div style={{
-            width: '16px',
-            height: '16px',
-            border: '2px solid var(--semi-color-border)',
-            borderTop: '2px solid var(--semi-color-primary)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-          }} />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '16px',
+            color: 'var(--semi-color-text-2)',
+          }}
+        >
+          <div
+            style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid var(--semi-color-border)',
+              borderTop: '2px solid var(--semi-color-primary)',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
           正在渲染...
         </div>
       ) : (
@@ -529,4 +694,4 @@ export function MarkdownRenderer(props) {
   );
 }
 
-export default MarkdownRenderer; 
+export default MarkdownRenderer;
