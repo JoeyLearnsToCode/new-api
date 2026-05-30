@@ -37,6 +37,16 @@ jobs:
           bun install
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
           cd ..
+      - name: Build moe-atelier frontend
+        run: |
+          git clone --depth 1 https://github.com/FSHebe233/moe-atelier.git moe-atelier-tmp
+          cd moe-atelier-tmp
+          bun install
+          bun run build
+          mkdir -p ../web/moe-atelier-dist
+          cp -r dist/* ../web/moe-atelier-dist/
+          cd ..
+          rm -rf moe-atelier-tmp
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -83,6 +93,16 @@ jobs:
           bun install
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
           cd ..
+      - name: Build moe-atelier frontend
+        run: |
+          git clone --depth 1 https://github.com/FSHebe233/moe-atelier.git moe-atelier-tmp
+          cd moe-atelier-tmp
+          bun install
+          bun run build
+          mkdir -p ../web/moe-atelier-dist
+          cp -r dist/* ../web/moe-atelier-dist/
+          cd ..
+          rm -rf moe-atelier-tmp
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -125,6 +145,16 @@ jobs:
           bun install
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
           cd ..
+      - name: Build moe-atelier frontend
+        run: |
+          git clone --depth 1 https://github.com/FSHebe233/moe-atelier.git moe-atelier-tmp
+          cd moe-atelier-tmp
+          bun install
+          bun run build
+          mkdir -p ../web/moe-atelier-dist
+          cp -r dist/* ../web/moe-atelier-dist/
+          cd ..
+          rm -rf moe-atelier-tmp
       - name: Set up Go
         uses: actions/setup-go@v3
         with:

@@ -2,8 +2,8 @@ FROM node:20-alpine AS moe-builder
 RUN apk add --no-cache git
 WORKDIR /app
 RUN git clone --depth 1 https://github.com/JoeyLearnsToCode/moe-atelier.git . && \
-    npm install && \
-    npm run build
+    bun install && \
+    bun run build
 
 FROM oven/bun:latest AS builder
 
