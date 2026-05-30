@@ -40,6 +40,9 @@ var buildFS embed.FS
 //go:embed web/dist/index.html
 var indexPage []byte
 
+//go:embed web/moe-atelier-dist
+var moeAtelierFS embed.FS
+
 func main() {
 	startTime := time.Now()
 
@@ -189,6 +192,12 @@ func main() {
 		SameSite: http.SameSiteStrictMode,
 	})
 	server.Use(sessions.Sessions("session", store))
+
+	// Host-based routing for moe-atelier — MUST be registered before other routes
+	server.Use(middleware.MoeAtelierMiddleware(moeAtelierFS))
+
+	// Host-based routing for moe-atelier — MUST be registered before other routes
+	server.Use(middleware.MoeAtelierMiddleware(moeAtelierFS))
 
 	InjectUmamiAnalytics()
 	InjectGoogleAnalytics()

@@ -8,6 +8,8 @@ build
 *.db-journal
 logs
 web/dist
+web/moe-atelier-dist
+moe-atelier-tmp
 .env
 one-api
 new-api
