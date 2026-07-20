@@ -353,6 +353,13 @@ const OtherSetting = () => {
                   </Text>
                 </Col>
               </Row>
+              <Row>
+                <Col span={16}>
+                  <Text>
+                    {t('构建时间')}：{statusState?.status?.build_time || t('未知')}
+                  </Text>
+                </Col>
+              </Row>
             </Form.Section>
           </Card>
         </Form>

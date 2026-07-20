@@ -23,7 +23,7 @@ RUN go mod download
 
 COPY . .
 COPY --from=builder /build/dist ./web/dist
-RUN go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o new-api
+RUN BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)' -X 'github.com/QuantumNous/new-api/common.BuildTime=${BUILD_TIME}'" -o new-api
 
 FROM debian:bookworm-slim
 

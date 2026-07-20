@@ -484,6 +484,7 @@
     "共 {{count}} 条日志_other": "{{count}} log entries",
     "共 {{total}} 项，当前显示 {{start}}-{{end}} 项": "Tổng {{total}} mục, đang hiển thị {{start}}-{{end}} mục",
     "关": "đóng",
+    "构建时间": "Thời gian xây dựng",
     "关于": "Giới thiệu",
     "关于我们": "Về chúng tôi",
     "关于系统的详细信息": "Thông tin chi tiết về hệ thống",

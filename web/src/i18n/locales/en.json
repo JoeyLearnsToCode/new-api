@@ -487,6 +487,7 @@
     "共 {{count}} 条日志_other": "{{count}} log entries",
     "共 {{total}} 项，当前显示 {{start}}-{{end}} 项": "{{total}} items total, showing {{start}}-{{end}} items",
     "关": "Off",
+    "构建时间": "Build Time",
     "关于": "About",
     "关于我们": "About Us",
     "关于系统的详细信息": "Detailed information about the system",
