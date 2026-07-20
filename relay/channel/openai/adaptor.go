@@ -43,8 +43,8 @@ type Adaptor struct {
 // minimal effort only available in gpt-5
 func parseReasoningEffortFromModelSuffix(model string) (string, string) {
 	effortSuffixes := []string{"-xhigh", "-high", "-minimal", "-low", "-medium", "-none"}
-	// deepseek-v4 支持 max 推理强度
-	if strings.Contains(strings.ToLower(model), "deepseek") {
+	// deepseek-v4, kimi-k3 支持 max 推理强度
+	if strings.Contains(strings.ToLower(model), "deepseek") || strings.Contains(strings.ToLower(model), "kimi-k3") {
 		effortSuffixes = append(effortSuffixes, "-max")
 	}
 	for _, suffix := range effortSuffixes {
