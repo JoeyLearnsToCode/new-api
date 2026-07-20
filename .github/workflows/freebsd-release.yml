@@ -17,6 +17,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Determine Version
+        run: |
+          VERSION=$(git describe --tags)
+          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -27,7 +34,7 @@ jobs:
         run: |
           cd web
           bun install
-          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(git describe --tags) bun run build
+          DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
           cd ..
 
       - name: Set up Go
@@ -42,7 +49,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           go mod download
-          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(git describe --tags)' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-freebsd
+          go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-freebsd
 
       - name: Release
         uses: softprops/action-gh-release@v1

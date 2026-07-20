@@ -9,6 +9,7 @@ COPY ./VERSION .
 RUN DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat VERSION) bun run build
 
 FROM golang:alpine AS builder2
+RUN apk add --no-cache tzdata
 ENV GO111MODULE=on CGO_ENABLED=0
 
 ARG TARGETOS

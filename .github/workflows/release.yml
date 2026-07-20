@@ -25,7 +25,9 @@ jobs:
       - name: Determine Version
         run: |
           VERSION=$(git describe --tags)
+          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -44,12 +46,12 @@ jobs:
       - name: Build Backend (amd64)
         run: |
           go mod download
-          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-$VERSION
+          go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-$VERSION
       - name: Build Backend (arm64)
         run: |
           sudo apt-get update
           DEBIAN_FRONTEND=noninteractive sudo apt-get install -y gcc-aarch64-linux-gnu
-          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-arm64-$VERSION
+          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-arm64-$VERSION
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -70,7 +72,9 @@ jobs:
       - name: Determine Version
         run: |
           VERSION=$(git describe --tags)
+          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -90,7 +94,7 @@ jobs:
       - name: Build Backend
         run: |
           go mod download
-          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go build -ldflags "-X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME'" -o new-api-macos-$VERSION
+          go build -ldflags "-X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME'" -o new-api-macos-$VERSION
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -113,7 +117,9 @@ jobs:
       - name: Determine Version
         run: |
           VERSION=$(git describe --tags)
+          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_ENV
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -132,7 +138,7 @@ jobs:
       - name: Build Backend
         run: |
           go mod download
-          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME'" -o new-api-$VERSION.exe
+          go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$VERSION' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME'" -o new-api-$VERSION.exe
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
