@@ -11,4 +11,4 @@ build-frontend:
 
 start-backend:
 	@echo "Starting backend dev server..."
-	@cd $(BACKEND_DIR) && BUILD_TIME=$$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') go run -ldflags "-X 'github.com/QuantumNous/new-api/common.BuildTime=$$BUILD_TIME'" main.go &
+	@cd $(BACKEND_DIR) && BUILD_TIME=$$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go run -ldflags "-X 'github.com/QuantumNous/new-api/common.BuildTime=$$BUILD_TIME'" main.go &

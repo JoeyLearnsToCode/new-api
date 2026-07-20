@@ -55,13 +55,13 @@ jobs:
       #   if: runner.os != 'Windows'
       #   run: |
       #     go mod download
-      #     go build -ldflags "-s -w -X 'new-api/common.Version=$(git describe --tags)' -extldflags '-static'" -o new-api
+      #     go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(git describe --tags)' -extldflags '-static'" -o new-api
 
       - name: Build Go binary (Windows)
         if: runner.os == 'Windows'
         run: |
           go mod download
-          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') go build -ldflags "-s -w -X 'new-api/common.Version=$(git describe --tags)' -X 'new-api/common.BuildTime=$BUILD_TIME'" -o new-api.exe
+          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(git describe --tags)' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME'" -o new-api.exe
 
       - name: Update Electron version
         run: |

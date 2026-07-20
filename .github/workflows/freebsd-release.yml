@@ -42,7 +42,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           go mod download
-          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(git describe --tags)' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-freebsd
+          BUILD_TIME=$(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S') && go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(git describe --tags)' -X 'github.com/QuantumNous/new-api/common.BuildTime=$BUILD_TIME' -extldflags '-static'" -o new-api-freebsd
 
       - name: Release
         uses: softprops/action-gh-release@v1
