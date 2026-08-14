@@ -1453,12 +1453,6 @@ const EditChannelModal = (props) => {
       }
     }
 
-    if (localInputs.base_url && localInputs.base_url.endsWith('/')) {
-      localInputs.base_url = localInputs.base_url.slice(
-        0,
-        localInputs.base_url.length - 1,
-      );
-    }
     if (localInputs.type === 18 && localInputs.other === '') {
       localInputs.other = 'v2.1';
     }

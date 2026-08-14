@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/ollama"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
@@ -1184,7 +1185,9 @@ func FetchModels(c *gin.Context) {
 		return
 	}
 
-	request.Header.Set("Authorization", "Bearer "+key)
+	if !relaycommon.IsNullApiKey(key) {
+		request.Header.Set("Authorization", "Bearer "+key)
+	}
 
 	response, err := client.Do(request)
 	if err != nil {

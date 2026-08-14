@@ -14,6 +14,14 @@ import (
 	"github.com/samber/lo"
 )
 
+
+// NullApiKeyValue 是密钥的特殊配置值，配置为它时请求上游 API 不发送认证相关 HTTP 头
+const NullApiKeyValue = "$null"
+
+// IsNullApiKey 判断密钥是否配置为 $null
+func IsNullApiKey(apiKey string) bool {
+	return strings.TrimSpace(apiKey) == NullApiKeyValue
+}
 type HasPrompt interface {
 	GetPrompt() string
 }
@@ -32,6 +40,10 @@ func GetFullRequestURL(baseURL string, requestURL string, channelType int) strin
 		case constant.ChannelTypeAzure:
 			fullRequestURL = fmt.Sprintf("%s%s", baseURL, strings.TrimPrefix(requestURL, "/openai/deployments"))
 		}
+	}
+	// 兼容 API地址 以 / 结尾的配置（如 https://foo.bar/v2/），此时 API地址 已包含版本前缀，不再拼接 /v1
+	if strings.HasSuffix(baseURL, "/") && (strings.HasPrefix(requestURL, "/v1/") || requestURL == "/v1") {
+		fullRequestURL = strings.TrimSuffix(baseURL, "/") + strings.TrimPrefix(requestURL, "/v1")
 	}
 	return fullRequestURL
 }

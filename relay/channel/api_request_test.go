@@ -182,3 +182,36 @@ func TestProcessHeaderOverride_EnvVariableWithApiKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Bearer sk-test-12345", headers["Authorization"])
 }
+
+func TestStripAuthHeaders_NullApiKey(t *testing.T) {
+	t.Parallel()
+
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer sk-test")
+	headers.Set("X-Api-Key", "sk-test")
+	headers.Set("X-Goog-Api-Key", "sk-test")
+	headers.Set("Api-Key", "sk-test")
+	headers.Set("Content-Type", "application/json")
+
+	stripAuthHeaders(&headers)
+
+	require.Empty(t, headers.Values("Authorization"))
+	require.Empty(t, headers.Values("X-Api-Key"))
+	require.Empty(t, headers.Values("X-Goog-Api-Key"))
+	require.Empty(t, headers.Values("Api-Key"))
+	require.Equal(t, "application/json", headers.Get("Content-Type"))
+}
+
+func TestStripAuthHeaders_Nil(t *testing.T) {
+	t.Parallel()
+	stripAuthHeaders(nil)
+}
+
+func TestIsNullApiKey(t *testing.T) {
+	t.Parallel()
+
+	require.True(t, relaycommon.IsNullApiKey("$null"))
+	require.True(t, relaycommon.IsNullApiKey("  $null  "))
+	require.False(t, relaycommon.IsNullApiKey("sk-test-12345"))
+	require.False(t, relaycommon.IsNullApiKey(""))
+}

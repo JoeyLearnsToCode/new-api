@@ -40,6 +40,25 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 	}
 }
 
+// authHeaderNames 认证相关 HTTP 头（规范化名），密钥配置为 $null 时需要删除
+var authHeaderNames = []string{
+	"Authorization",
+	"X-Api-Key",
+	"X-Goog-Api-Key",
+	"Api-Key",
+}
+
+// stripAuthHeaders 删除请求头中的认证相关字段
+func stripAuthHeaders(headers *http.Header) {
+	if headers == nil {
+		return
+	}
+	for _, name := range authHeaderNames {
+		headers.Del(name)
+	}
+}
+
+
 const clientHeaderPlaceholderPrefix = "{client_header:"
 // 环境变量正则表达式
 var envVariableRegex = regexp.MustCompile(`\$\{env:([a-zA-Z0-9_]+)\}`)
@@ -310,6 +329,11 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
 	}
+	if common.IsNullApiKey(info.ApiKey) {
+		// 密钥配置为 $null 时不发送认证相关头
+		stripAuthHeaders(&headers)
+	}
+
 	// 在 SetupRequestHeader 之后应用 Header Override，确保用户设置优先级最高
 	// 这样可以覆盖默认的 Authorization header 设置
 	headerOverride, err := processHeaderOverride(info, c)
@@ -343,6 +367,11 @@ func DoFormRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBod
 	if err != nil {
 		return nil, fmt.Errorf("setup request header failed: %w", err)
 	}
+	if common.IsNullApiKey(info.ApiKey) {
+		// 密钥配置为 $null 时不发送认证相关头
+		stripAuthHeaders(&headers)
+	}
+
 	// 在 SetupRequestHeader 之后应用 Header Override，确保用户设置优先级最高
 	// 这样可以覆盖默认的 Authorization header 设置
 	headerOverride, err := processHeaderOverride(info, c)
@@ -371,6 +400,11 @@ func DoWssRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	// 这样可以覆盖默认的 Authorization header 设置
 	headerOverride, err := processHeaderOverride(info, c)
 	if err != nil {
+	if common.IsNullApiKey(info.ApiKey) {
+		// 密钥配置为 $null 时不发送认证相关头
+		stripAuthHeaders(&targetHeader)
+	}
+
 		return nil, err
 	}
 	for key, value := range headerOverride {
