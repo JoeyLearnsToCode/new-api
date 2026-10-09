@@ -138,11 +138,35 @@ POST   /sample                         (文案由前端传，缺省回落中文)
 | `components/AppInitializer.tsx` | 先加载再判断是否建示例数据；主题改为跟随 new-api 全局主题（不再自行操作 `documentElement` 的 dark class） |
 | `hooks/useGlobalSearch.ts` | `db.versions.toArray()` → `loadAllVersions()` |
 | `components/common/ThemeToggle.tsx` | 从改本地 store 改为调用 new-api 的 `useSetTheme()`，切换全局主题 |
-| `pages/Settings.tsx` | 移除 WebDAV 备份/恢复卡片（连带不再需要 `mt-8` / `sm:flex-none` / `text-[18px]` / `border-primary/30` 等类）；`navigate('/')` 改为设置 hash |
+| `pages/Settings.tsx` | `navigate('/')` 改为设置 hash；WebDAV 卡片保留，数据改为走后端接口（见第5.1节） |
 | `pages/MainView.tsx` | `navigate('/settings')` 改为设置 hash；附件上传改为一次批量请求；根容器 `h-dynamic-screen` → 由 `.prompt-studio-root` 提供高度；logo 改为 `import` 随包资源 |
 | `components/version/CompareModal.tsx` | `import { editor }` → `import type`（否则 monaco 会被打进产物，约 7MB） |
 | `components/version/AttachmentGallery.tsx` | 增加预览 URL 预取与重渲染；下载改为传附件对象以保留原始文件名 |
-| `services/webdavService.ts` 等 | 见下方"未迁移文件" |
+| `services/webdavService.ts` | 数据源从 IndexedDB 改为后端打包/恢复接口，见第5.1节 |
+| `services/exportService.ts`（补充） | zip 构建抽成 `buildBackupZip()`，本地导出与 WebDAV 备份共用 |
+| `services/importService.ts`（补充） | 附件解析增加"原始文件名扩展名"和"裸 id"两种候选，兼容上游 WebDAV 备份包 |
+
+### 5.1 WebDAV 备份与恢复（两段式）
+
+整体拆成两段，**后端没有为此新增任何接口**：
+
+| 段 | 承担方 | 实现 |
+| --- | --- | --- |
+| 数据打包/恢复 | 浏览器（数据来自后端） | 备份：`GET /export` → `exportService.buildBackupZip()` → `putFileContents`；恢复：`getFileContents` → `importService.importFromZip` → `POST /import` |
+| 上传/下载 | 浏览器 ↔ WebDAV 服务器 | `webdav` npm 包直连，new-api 后端不参与 |
+
+之所以打包放在浏览器：上传下载本来就在浏览器与 WebDAV 之间进行，浏览器必然要完整持有 zip 字节，
+若改由服务端打包就多一跳（服务端→浏览器→WebDAV），没有收益。
+
+约束与注意事项：
+
+- 要求 WebDAV 服务端允许跨域（CORS）并接受 `Authorization` 头，否则浏览器直连会被拦。
+  这是上游既有限制，不是迁移引入的
+- 备份包结构与本地导出的 ZIP 完全一致，两种来源可互相导入
+- 凭据沿用上游做法存 localStorage（密码框为 password 类型）
+- 恢复沿用上游行为：完成后 `window.location.reload()`
+- 附件在包里同时以 `attachments.json` 的 base64 与 `attachments/<id><ext>` 二进制存在，
+  恢复时优先取 base64，取不到再从二进制还原
 
 ## 6. 路由与菜单接入
 
@@ -182,13 +206,12 @@ extend: { colors: promptStudioColors }            // 合并工坊设计令牌
 
 ## 8. 有意偏离上游的地方
 
-1. **移除 WebDAV 备份/恢复**：数据已在服务端持久化，且原实现把密码明文存 localStorage
-2. **主题不再独立**：跟随 new-api 全局主题，页内开关切换的是全局主题
-3. **附件单文件上限 10MB**：上游 IndexedDB 允许到 50MB，服务端存储改为 10MB（前端校验阈值已同步）
-4. **未迁移的死代码**（上游本身未被引用）：`services/folderManager.ts`、`services/snippetManager.ts`、
+1. **主题不再独立**：跟随 new-api 全局主题，页内开关切换的是全局主题
+2. **附件单文件上限 10MB**：上游 IndexedDB 允许到 50MB，服务端存储改为 10MB（前端校验阈值已同步）
+3. **未迁移的死代码**（上游本身未被引用）：`services/folderManager.ts`、`services/snippetManager.ts`、
    `utils/validation.ts`、`db/migrations.ts`、`pages/SnippetLibrary.tsx`、`src/test/`、`App.tsx`、`router.tsx`、`main.tsx`。
    `snippets` 表保留，仅为兼容导入导出
-5. **duplicate 检测**：上游 `handleSave` 实际总是传 `skipDuplicateCheck=true`，该分支在 UI 上不会触发；
+4. **duplicate 检测**：上游 `handleSave` 实际总是传 `skipDuplicateCheck=true`，该分支在 UI 上不会触发；
    服务端仍完整实现（返回 `DUPLICATE_DETECTED:<id>`），行为保持不变
 
 ## 9. 后续增量迁移指引
@@ -200,7 +223,8 @@ extend: { colors: promptStudioColors }            // 合并工坊设计令牌
    - `src/services/attachmentManager.ts`、`exportService.ts`、`importService.ts`、`initializeSampleData.ts`（已改为 HTTP）
    - `src/utils/normalize.ts`、`src/utils/hash.ts`（**变化必须同步 Go 版并重跑哈希比对**）
    - `src/components/AppInitializer.tsx`、`components/common/ThemeToggle.tsx`（已改为跟随宿主主题）
-   - `src/pages/Settings.tsx`（已移除 WebDAV）
+   - `src/services/webdavService.ts`（数据源已改为后端打包/恢复接口，见第5.1节）
+   - `src/pages/Settings.tsx`（WebDAV 卡片的数据来源已改；`navigate` 已改为设置 hash）
    - `src/styles/tokens.js`、`src/styles/globals.css`（需同步 `web/tailwind.config.js` 与作用域处理）
 3. 其余纯 UI 文件（组件、hooks、canvas、diff、搜索、i18n）可直接覆盖同名文件，再跑一次下面的验证
 4. 迁移完成后更新本文件头部的 commit 与日期

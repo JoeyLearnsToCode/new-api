@@ -62,6 +62,7 @@ export const STORAGE_KEYS = {
   SIDEBAR_COLLAPSED: 'promptStudio.layout.sidebarCollapsed',
   SEARCH_LAST_QUERY: 'promptStudio.search.lastQuery',
   FIRST_OPEN_TIME: 'promptStudio.app.firstOpenTime',
+  WEBDAV_CONFIG: 'promptStudio.settings.webdav_config',
   SNAPSHOT_FOLDERS: 'promptStudio.cache.folders',
   SNAPSHOT_PROJECTS: 'promptStudio.cache.projects',
   UI_LANGUAGE: 'promptStudio.app.ui_language',

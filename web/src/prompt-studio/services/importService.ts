@@ -37,6 +37,26 @@ const ATTACHMENT_EXTENSIONS = [
   '.bin',
 ];
 
+/**
+ * 附件在 ZIP 里的候选文件名
+ * 1. 附件原始文件名的扩展名（最可靠，导出时就是这么写的）
+ * 2. 常见扩展名逐个试探（兼容其它来源的备份包）
+ * 3. 不带扩展名（原 prompt-studio 的 WebDAV 备份就是以裸 id 存放的）
+ */
+const attachmentCandidates = (attachment: any): string[] => {
+  const id = attachment?.id ?? '';
+  const candidates: string[] = [];
+  const fileName: string = attachment?.fileName ?? '';
+  if (fileName.includes('.')) {
+    candidates.push(`${id}.${fileName.split('.').pop()?.toLowerCase()}`);
+  }
+  for (const ext of ATTACHMENT_EXTENSIONS) {
+    candidates.push(`${id}${ext}`);
+  }
+  candidates.push(id);
+  return candidates;
+};
+
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;
@@ -166,8 +186,8 @@ export class ImportService {
         if (!attachmentsFolder) {
           return { ...attachment, isMissing: true };
         }
-        for (const ext of ATTACHMENT_EXTENSIONS) {
-          const file = attachmentsFolder.file(`${attachment.id}${ext}`);
+        for (const name of attachmentCandidates(attachment)) {
+          const file = attachmentsFolder.file(name);
           if (!file) continue;
           try {
             const arrayBuffer = await file.async('arraybuffer');
@@ -177,10 +197,7 @@ export class ImportService {
               isMissing: false,
             };
           } catch (error) {
-            console.warn(
-              `Failed to load attachment file: ${attachment.id}${ext}`,
-              error,
-            );
+            console.warn(`Failed to load attachment file: ${name}`, error);
           }
         }
         return { ...attachment, isMissing: true };

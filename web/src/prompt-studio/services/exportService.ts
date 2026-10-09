@@ -56,9 +56,10 @@ export class ExportService {
   }
 
   /**
-   * 导出所有数据为 ZIP
+   * 构建备份 ZIP
+   * 本地导出与 WebDAV 备份共用同一份打包实现，两者产出的备份包结构完全一致
    */
-  async exportAllAsZip(): Promise<void> {
+  async buildBackupZip(): Promise<Blob> {
     const zip = new JSZip();
 
     // 一次性从服务端取回全部数据，前端只负责打包
@@ -123,7 +124,14 @@ export class ExportService {
       ),
     );
 
-    const blob = await zip.generateAsync(zipGenOptions);
+    return zip.generateAsync(zipGenOptions);
+  }
+
+  /**
+   * 导出所有数据为 ZIP（下载到本地）
+   */
+  async exportAllAsZip(): Promise<void> {
+    const blob = await this.buildBackupZip();
     saveAs(blob, `prompt-studio-backup-${Date.now()}.zip`);
   }
 
