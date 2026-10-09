@@ -119,6 +119,11 @@ const PageLayout = () => {
     }
   }, [i18n]);
 
+  // 提示词工坊是完整独立应用，直接整页渲染，不套用控制台的顶栏与侧边栏
+  if (location.pathname.startsWith('/prompt-studio')) {
+    return <App />;
+  }
+
   return (
     <Layout
       className='app-layout'

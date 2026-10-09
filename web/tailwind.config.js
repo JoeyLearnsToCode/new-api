@@ -17,10 +17,37 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
+import containerQueries from '@tailwindcss/container-queries';
+// 注意：默认色板要从 tailwindcss/colors 取。tailwindcss/defaultTheme 的 colors 是空对象，
+// 用它做展开会导致色板恢复不生效（bg-transparent / border-transparent 等工具类依旧不生成）。
+import tailwindColors from 'tailwindcss/colors';
+import { colors as promptStudioColors } from './src/prompt-studio/styles/tokens.js';
+
+// tailwindcss/colors 仍保留 v2/v3 起的旧命名（lightBlue / warmGray / trueGray / coolGray /
+// blueGray），它们是带弃用告警的 getter：只要被读取（Object.entries / 展开都会读）就会告警。
+// 这里用 getOwnPropertyNames（不会触发 getter）取到全部名字后剔除旧命名，再只读取新命名的值。
+const LEGACY_COLOR_ALIASES = new Set([
+  'lightBlue',
+  'warmGray',
+  'trueGray',
+  'coolGray',
+  'blueGray',
+]);
+const defaultColors = Object.fromEntries(
+  Object.getOwnPropertyNames(tailwindColors)
+    .filter((name) => !LEGACY_COLOR_ALIASES.has(name))
+    .map((name) => [name, tailwindColors[name]]),
+);
+
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  darkMode: 'class',
   theme: {
+    // 说明：这里原先只声明了 semi-color-*，等价于整体替换掉了 Tailwind 默认色板，
+    // 导致 text-gray-500 / bg-white 一类默认色工具类根本不会生成。
+    // 提示词工坊依赖默认色板，因此在默认色板之上合并 semi 与工坊的设计令牌。
     colors: {
+      ...defaultColors,
       'semi-color-white': 'var(--semi-color-white)',
       'semi-color-black': 'var(--semi-color-black)',
       'semi-color-primary': 'var(--semi-color-primary)',
@@ -134,7 +161,13 @@ export default {
       'semi-color-data-19': 'var(--semi-color-data-19)',
     },
     extend: {
+      // 提示词工坊的设计令牌（与 tailwind 默认色板同名时以工坊为准）
+      colors: promptStudioColors,
       borderRadius: {
+        'm3-small': '0.375rem', // 6px
+        'm3-medium': '0.5rem', // 8px
+        'm3-large': '0.75rem', // 12px
+        'm3-xl': '1rem', // 16px
         'semi-border-radius-extra-small':
           'var(--semi-border-radius-extra-small)',
         'semi-border-radius-small': 'var(--semi-border-radius-small)',
@@ -143,7 +176,12 @@ export default {
         'semi-border-radius-circle': 'var(--semi-border-radius-circle)',
         'semi-border-radius-full': 'var(--semi-border-radius-full)',
       },
+      boxShadow: {
+        card: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        'card-hover':
+          '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      },
     },
   },
-  plugins: [],
+  plugins: [containerQueries],
 };

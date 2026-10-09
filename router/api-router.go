@@ -368,5 +368,33 @@ func SetApiRouter(router *gin.Engine) {
 			deploymentsRoute.POST("/:id/extend", controller.ExtendDeployment)
 			deploymentsRoute.DELETE("/:id", controller.DeleteDeployment)
 		}
+		// Prompt Studio（提示词版本管理，普通用户可用，数据按用户隔离）
+		promptStudioRoute := apiRouter.Group("/prompt-studio")
+		promptStudioRoute.Use(middleware.UserAuth())
+		{
+			promptStudioRoute.GET("/folders", controller.GetPromptStudioFolders)
+			promptStudioRoute.POST("/folders", controller.CreatePromptStudioFolder)
+			promptStudioRoute.PUT("/folders/:id", controller.UpdatePromptStudioFolder)
+			promptStudioRoute.DELETE("/folders/:id", controller.DeletePromptStudioFolder)
+
+			promptStudioRoute.GET("/projects", controller.GetPromptStudioProjects)
+			promptStudioRoute.POST("/projects", controller.CreatePromptStudioProject)
+			promptStudioRoute.PUT("/projects/:id", controller.UpdatePromptStudioProject)
+			promptStudioRoute.DELETE("/projects/:id", controller.DeletePromptStudioProject)
+
+			promptStudioRoute.GET("/versions", controller.GetPromptStudioVersions)
+			promptStudioRoute.POST("/versions", controller.CreatePromptStudioVersion)
+			promptStudioRoute.PUT("/versions/:id", controller.UpdatePromptStudioVersion)
+			promptStudioRoute.DELETE("/versions/:id", controller.DeletePromptStudioVersion)
+
+			promptStudioRoute.GET("/attachments", controller.GetPromptStudioAttachments)
+			promptStudioRoute.POST("/versions/:id/attachments", controller.UploadPromptStudioAttachments)
+			promptStudioRoute.GET("/attachments/:id/content", controller.DownloadPromptStudioAttachment)
+			promptStudioRoute.DELETE("/attachments/:id", controller.DeletePromptStudioAttachment)
+
+			promptStudioRoute.GET("/export", controller.ExportPromptStudioData)
+			promptStudioRoute.POST("/import", controller.ImportPromptStudioData)
+			promptStudioRoute.POST("/sample", controller.CreatePromptStudioSample)
+		}
 	}
 }

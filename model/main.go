@@ -276,6 +276,11 @@ func migrateDB() error {
 		&SubscriptionPreConsumeRecord{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
+		&PromptStudioFolder{},
+		&PromptStudioProject{},
+		&PromptStudioVersion{},
+		&PromptStudioAttachment{},
+		&PromptStudioSnippet{},
 	)
 	if err != nil {
 		return err

@@ -1,0 +1,137 @@
+import { create } from 'zustand';
+import Fuse from 'fuse.js';
+import type { Version } from '@/prompt-studio/models/Version';
+import type { Project } from '@/prompt-studio/models/Project';
+
+export interface SearchState {
+  query: string;
+  matches: string[];
+  currentIndex: number;
+  total: number;
+  isActive: boolean;
+}
+
+interface SearchStore extends SearchState {
+  setQuery: (query: string) => void;
+  executeVersionSearch: (versions: Version[], query: string) => void;
+  executeGlobalSearch: (
+    projects: Project[],
+    versions: Version[],
+    query: string,
+  ) => void;
+  nextMatch: () => void;
+  prevMatch: () => void;
+  clearSearch: () => void;
+  focusMatch: (index: number) => void;
+}
+
+const initialState: SearchState = {
+  query: '',
+  matches: [],
+  currentIndex: -1,
+  total: 0,
+  isActive: false,
+};
+
+export const useSearchStore = create<SearchStore>((set) => ({
+  ...initialState,
+
+  setQuery: (query) => {
+    set({ query });
+  },
+
+  executeVersionSearch: (versions, query) => {
+    if (!query.trim()) {
+      set(initialState);
+      return;
+    }
+
+    const fuse = new Fuse(versions, {
+      keys: ['name', 'content'],
+      threshold: 0.4,
+      ignoreLocation: true,
+      shouldSort: true,
+    });
+
+    const results = fuse.search(query);
+    const matches = results.map((r) => r.item.id);
+
+    set({
+      query,
+      matches,
+      total: matches.length,
+      currentIndex: matches.length > 0 ? 0 : -1,
+      isActive: true,
+    });
+  },
+
+  executeGlobalSearch: (projects, versions, query) => {
+    if (!query.trim()) {
+      set(initialState);
+      return;
+    }
+
+    const projectItems = projects.map((p) => ({
+      id: p.id,
+      type: 'project' as const,
+      name: p.name,
+      content: '',
+    }));
+
+    const versionItems = versions.map((v) => ({
+      id: v.id,
+      type: 'version' as const,
+      name: v.name ?? '',
+      content: v.content,
+    }));
+
+    const allItems = [...projectItems, ...versionItems];
+
+    const fuse = new Fuse(allItems, {
+      keys: ['name', 'content'],
+      threshold: 0.4,
+      ignoreLocation: true,
+      shouldSort: true,
+    });
+
+    const results = fuse.search(query);
+    const matches = results.map((r) => r.item.id);
+
+    set({
+      query,
+      matches,
+      total: matches.length,
+      currentIndex: matches.length > 0 ? 0 : -1,
+      isActive: true,
+    });
+  },
+
+  nextMatch: () => {
+    set((state) => {
+      if (state.matches.length === 0) return state;
+      return { currentIndex: (state.currentIndex + 1) % state.matches.length };
+    });
+  },
+
+  prevMatch: () => {
+    set((state) => {
+      if (state.matches.length === 0) return state;
+      return {
+        currentIndex:
+          (state.currentIndex - 1 + state.matches.length) %
+          state.matches.length,
+      };
+    });
+  },
+
+  clearSearch: () => {
+    set(initialState);
+  },
+
+  focusMatch: (index) => {
+    set((state) => {
+      if (index < 0 || index >= state.matches.length) return state;
+      return { currentIndex: index };
+    });
+  },
+}));

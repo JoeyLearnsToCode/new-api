@@ -49,6 +49,7 @@ const routerMap = {
   deployment: '/console/deployment',
   playground: '/console/playground',
   personal: '/console/personal',
+  prompt_studio: '/prompt-studio',
 };
 
 const SiderBar = ({ onNavigate = () => {} }) => {
@@ -104,6 +105,11 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         to: '/task',
         className:
           localStorage.getItem('enable_task') === 'true' ? '' : 'tableHiddle',
+      },
+      {
+        text: t('提示词工坊'),
+        itemKey: 'prompt_studio',
+        to: '/prompt-studio',
       },
     ];
 

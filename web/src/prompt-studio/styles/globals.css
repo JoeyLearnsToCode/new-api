@@ -1,0 +1,72 @@
+/*
+ * 提示词工坊样式（嵌入 new-api 版本）
+ *
+ * 与原独立应用的区别：
+ * 1. 不再引入 @tailwind base/components/utilities —— new-api 已全局引入，
+ *    重复引入会破坏宿主应用的样式层顺序
+ * 2. 原作用于 * / body / #root 的全局规则改为限定在 .prompt-studio-root 下，
+ *    避免污染控制台其它页面
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+.prompt-studio-root {
+  @apply bg-background text-surface-onSurface transition-colors duration-200;
+  @apply dark:bg-background-dark dark:text-surface-onSurfaceDark;
+  /* 页面独立渲染（不套控制台外壳），自行占满视口 */
+  height: 100vh;
+  height: 100dvh;
+  /* 与原应用一致的中文字体栈，只作用于工坊内部，不影响控制台其它页面 */
+  font-family:
+    'Noto Sans SC',
+    'Source Han Sans SC',
+    'Source Han Sans CN',
+    'Microsoft YaHei',
+    'PingFang SC',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+}
+
+.prompt-studio-root :where(*) {
+  box-sizing: border-box;
+}
+
+/* Scrollbar Styles */
+.prompt-studio-root ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.prompt-studio-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.prompt-studio-root ::-webkit-scrollbar-thumb {
+  background-color: theme('colors.scrollbar.thumb');
+  border-radius: 4px;
+}
+
+.dark .prompt-studio-root ::-webkit-scrollbar-thumb {
+  background-color: theme('colors.scrollbar.thumbDark');
+}
+
+.prompt-studio-root ::-webkit-scrollbar-thumb:hover {
+  background-color: theme('colors.scrollbar.thumbHover');
+}
+
+/* Monaco Editor Scrollbar Styles */
+.prompt-studio-root .monaco-scrollable-element > .scrollbar > .slider {
+  border-radius: 4px;
+  background: theme('colors.scrollbar.thumb') !important;
+}
+
+.dark .prompt-studio-root .monaco-scrollable-element > .scrollbar > .slider {
+  background: theme('colors.scrollbar.thumbDark') !important;
+}
