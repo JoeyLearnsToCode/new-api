@@ -7,6 +7,7 @@ import { saveAs } from 'file-saver';
 import { promptStudioApi } from '@/prompt-studio/api/client';
 import { storage, STORAGE_KEYS } from '@/prompt-studio/utils/storage';
 import { importService } from './importService';
+import type { Attachment } from '@/prompt-studio/models/Attachment';
 import type {
   ImportOptions,
   ImportProgressCallback,
@@ -28,6 +29,20 @@ const base64ToUint8Array = (base64: string): Uint8Array => {
   return bytes;
 };
 
+/**
+ * 生成写入 attachments.json 的附件元数据
+ *
+ * - 二进制统一放在 ZIP 的 `attachments/<id><ext>` 里，元数据不再重复携带 base64。
+ *   （`GET /export` 返回的附件自带 content，早期实现把它原样写出，
+ *   导致同一张图在包里存了两份，且 base64 段几乎压不动，包体积接近翻倍）
+ * - `hasBlob` 沿用上游备份格式的语义：该附件是否带有可用的二进制内容。
+ *   上游在 IndexedDB 下判断的是 blob 是否存在，这里等价于 content 是否非空
+ */
+const toAttachmentMetadata = (attachment: Attachment): Attachment => {
+  const { content, ...meta } = attachment;
+  return { ...meta, hasBlob: !!content };
+};
+
 export class ExportService {
   /**
    * 导出单个项目为 JSON
@@ -37,9 +52,14 @@ export class ExportService {
     const project = data.projects.find((p) => p.id === projectId);
     const versions = data.versions.filter((v) => v.projectId === projectId);
     const versionIds = new Set(versions.map((v) => v.id));
-    const attachments = data.attachments.filter((a) =>
-      versionIds.has(a.versionId),
-    );
+    // 单项目 JSON 是自包含的：没有 attachments/ 旁挂目录，二进制只能内联，
+    // 因此这里保留 content（与上游不同，上游的 JSON 导出会丢附件）
+    const attachments = data.attachments
+      .filter((a) => versionIds.has(a.versionId))
+      .map((attachment) => ({
+        ...attachment,
+        hasBlob: !!attachment.content,
+      }));
 
     const payload = {
       project,
@@ -66,25 +86,27 @@ export class ExportService {
     const { projects, folders, versions, snippets, attachments } =
       await promptStudioApi.exportAll();
 
+    // 附件的 base64 只用于写下面的二进制目录，元数据里不再重复携带
+    const attachmentMetadata = attachments.map(toAttachmentMetadata);
+
     zip.file('projects.json', JSON.stringify(projects, null, 2));
     zip.file('folders.json', JSON.stringify(folders, null, 2));
     zip.file('versions.json', JSON.stringify(versions, null, 2));
     zip.file('snippets.json', JSON.stringify(snippets, null, 2));
-    zip.file('attachments.json', JSON.stringify(attachments, null, 2));
+    zip.file('attachments.json', JSON.stringify(attachmentMetadata, null, 2));
 
     // 附件二进制同步写入 attachments 子目录，保持与原 prompt-studio 备份包一致的结构
     const attachmentsFolder = zip.folder('attachments');
     if (attachmentsFolder) {
       for (const attachment of attachments) {
-        const content = (attachment as any).content;
-        if (!content) continue;
+        if (!attachment.content) continue;
         const fileExtension = ExportService.getFileExtension(
           attachment.fileType,
           attachment.fileName,
         );
         attachmentsFolder.file(
           `${attachment.id}${fileExtension}`,
-          base64ToUint8Array(content),
+          base64ToUint8Array(attachment.content),
         );
       }
     }

@@ -29,6 +29,7 @@ const ATTACHMENT_EXTENSIONS = [
   '.svg',
   '.mp4',
   '.webm',
+  '.ogg',
   '.mov',
   '.pdf',
   '.txt',

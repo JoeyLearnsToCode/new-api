@@ -133,7 +133,7 @@ POST   /sample                         (文案由前端传，缺省回落中文)
 | `store/projectStore.ts` | Dexie → HTTP；删除未被引用的 `getRecentProjects`；`expandFolderPathToProject` 改为在内存文件夹树上回溯 |
 | `store/versionStore.ts` | Dexie → HTTP；新增 `loadAllVersions()` 供全局搜索；删除未被引用的 `getVersion/getChildren/isLeafNode/getLatestVersion/checkDuplicate` |
 | `services/attachmentManager.ts` | 上传改为后端接口；因附件内容需鉴权、不能直接用 `<img src>`，新增 `preloadPreviewUrls()` 预取 Object URL 并缓存，`getPreviewUrl()` 保持同步 |
-| `services/exportService.ts` | 5 次 `db.X.toArray()` → 1 次 `GET /export`；附件由 base64 还原为二进制写回 ZIP 的 `attachments/` 目录，包结构与上游保持一致 |
+| `services/exportService.ts` | 5 次 `db.X.toArray()` → 1 次 `GET /export`；附件由 base64 还原为二进制写回 ZIP 的 `attachments/` 目录，包结构与上游保持一致；`attachments.json` 只写元数据（见 5.2） |
 | `services/importService.ts` | 逐表写入 → 1 次 `POST /import`；附件优先取随包 base64，缺失时回退读 `attachments/<id><ext>` |
 | `services/initializeSampleData.ts` | 改为调用 `POST /sample`（服务端单事务创建），文案按当前语言传入 |
 | `components/AppInitializer.tsx` | 先加载再判断是否建示例数据；主题改为跟随 new-api 全局主题（不再自行操作 `documentElement` 的 dark class） |
@@ -168,8 +168,29 @@ POST   /sample                         (文案由前端传，缺省回落中文)
 - 备份包结构与本地导出的 ZIP 完全一致，两种来源可互相导入
 - 凭据沿用上游做法存 localStorage（密码框为 password 类型）
 - 恢复沿用上游行为：完成后 `window.location.reload()`
-- 附件在包里同时以 `attachments.json` 的 base64 与 `attachments/<id><ext>` 二进制存在，
-  恢复时优先取 base64，取不到再从二进制还原
+- 附件二进制只存一份，在 `attachments/<id><ext>`；`attachments.json` 只写元数据（见 5.2）
+
+### 5.2 备份包里的附件格式（勿再写入 base64）
+
+`attachments.json` 的每条记录是**元数据**，不含 `content`：
+
+```json
+{ "id": "...", "versionId": "...", "fileName": "a.png", "fileType": "image/png",
+  "size": 1234, "createdAt": 1700000000000, "hasBlob": true }
+```
+
+- 二进制单独放在 `attachments/<id><ext>`，`<ext>` 由 `getFileExtension(fileType, fileName)` 决定
+- `hasBlob` 沿用上游备份格式语义：导出时该附件是否带有可用的二进制。
+  上游在 IndexedDB 下判断 blob 是否存在，这里等价于 `content` 是否非空
+- **不要**把 `GET /export` 返回的 `content`（base64）写进 `attachments.json`。
+  该接口为了少一次往返会带上 base64，直接落盘会让同一张图在包里存两份，
+  且 base64 段几乎压不动（DEFLATE 对已压缩数据无效），包体积接近翻倍
+- 导入侧 `resolveAttachments()` 仍优先取 `content`，取不到再按候选名读二进制，
+  因此仍能导入上游产出的备份包（上游从不写 `content`），只是候选名要以二进制为准
+
+候选名解析的兜底扩展名列表（`ATTACHMENT_EXTENSIONS`）必须覆盖 `getFileExtension()` 可能产出的全部扩展名，
+否则自家导出的包会还原不出附件：`.` + 原始文件名扩展名（2~5 位）、MIME 映射表里的项、以及 `.bin`。
+新增 MIME 映射时记得同步该列表。
 
 ## 6. 路由与菜单接入
 
