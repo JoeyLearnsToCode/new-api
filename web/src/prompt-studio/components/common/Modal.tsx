@@ -28,29 +28,30 @@ export const Modal: React.FC<ModalProps> = ({
       <Dialog as='div' className='relative z-50' onClose={onClose}>
         <Transition.Child
           as={Fragment}
-          enter='ease-out duration-300'
+          enter='ease-out-expo duration-standard'
           enterFrom='opacity-0'
           enterTo='opacity-100'
-          leave='ease-in duration-200'
+          leave='ease-in-expo duration-fast'
           leaveFrom='opacity-100'
           leaveTo='opacity-0'
         >
-          <div className='fixed inset-0 bg-black/30 backdrop-blur-sm' />
+          {/* 不用 backdrop-blur：淡入期间每帧都要重算整页模糊，在重页面上会明显掉帧 */}
+          <div className='fixed inset-0 bg-black/40' />
         </Transition.Child>
 
         <div className='fixed inset-0 overflow-y-auto'>
           <div className='flex min-h-full items-center justify-center p-4'>
             <Transition.Child
               as={Fragment}
-              enter='ease-out duration-300'
-              enterFrom='opacity-0 scale-95'
-              enterTo='opacity-100 scale-100'
-              leave='ease-in duration-200'
-              leaveFrom='opacity-100 scale-100'
-              leaveTo='opacity-0 scale-95'
+              enter='ease-out-expo duration-standard'
+              enterFrom='opacity-0 translate-y-2'
+              enterTo='opacity-100 translate-y-0'
+              leave='ease-in-expo duration-fast'
+              leaveFrom='opacity-100 translate-y-0'
+              leaveTo='opacity-0 translate-y-1'
             >
               <Dialog.Panel
-                className={`transform overflow-hidden rounded-m3-large bg-surface dark:bg-surface-dark text-surface-onSurface dark:text-surface-onSurfaceDark shadow-m3-3 transition-all ${sizeClasses[size]}`}
+                className={`transform overflow-hidden rounded-m3-large bg-surface dark:bg-surface-dark text-surface-onSurface dark:text-surface-onSurfaceDark shadow-m3-3 transition-[opacity,transform] ${sizeClasses[size]}`}
               >
                 {title && (
                   <Dialog.Title

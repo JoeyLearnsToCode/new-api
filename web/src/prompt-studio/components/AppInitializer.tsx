@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { MotionConfig } from 'framer-motion';
 import { useActualTheme } from '@/context/Theme';
 import { initializeSampleData } from '@/prompt-studio/services/initializeSampleData';
 import { useProjectStore } from '@/prompt-studio/store/projectStore';
@@ -136,5 +137,6 @@ export const AppInitializer: React.FC<AppInitializerProps> = ({ children }) => {
     return null; // 或者可以显示一个加载动画
   }
 
-  return <>{children}</>;
+  // reducedMotion="user" 让 framer 动画一并尊重系统偏好
+  return <MotionConfig reducedMotion='user'>{children}</MotionConfig>;
 };

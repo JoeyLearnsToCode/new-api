@@ -163,6 +163,19 @@ export default {
     extend: {
       // 提示词工坊的设计令牌（与 tailwind 默认色板同名时以工坊为准）
       colors: promptStudioColors,
+      // 动效 token：数值与 src/prompt-studio/styles/motion.ts 保持一致
+      transitionTimingFunction: {
+        'out-expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'in-expo': 'cubic-bezier(0.7, 0, 0.84, 0)',
+        standard: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        snap: 'cubic-bezier(0, 0.55, 0.45, 1)',
+      },
+      transitionDuration: {
+        instant: '90ms',
+        fast: '160ms',
+        standard: '300ms',
+        gentle: '450ms',
+      },
       borderRadius: {
         'm3-small': '0.375rem', // 6px
         'm3-medium': '0.5rem', // 8px

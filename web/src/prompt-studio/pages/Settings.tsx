@@ -7,6 +7,8 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { duration, ease } from '@/prompt-studio/styles/motion';
 import {
   webdavService,
   type WebDAVConfig,
@@ -152,7 +154,8 @@ const Settings: React.FC = () => {
   };
 
   const handleRestore = async (remotePath: string) => {
-    // 设置待处理的恢复路径并显示模式选择对话框
+    // 先关闭备份列表模态框，避免两个 Dialog 同时打开时点击被外层 Dialog 吞掉
+    setShowRestoreModal(false);
     setPendingRestorePath(remotePath);
     setShowImportModeDialog(true);
   };
@@ -463,10 +466,19 @@ const Settings: React.FC = () => {
                   disabled={loading || !isConfigValid}
                   className='flex-1 sm:flex-none px-4 py-2.5 text-sm gap-2'
                 >
-                  <span className='material-symbols-outlined text-[18px]'>
-                    cloud_download
-                  </span>
-                  <span>{t('pages.settings.webdav.restoreFromWebdav')}</span>
+                  {/* 拉取备份列表是网络请求，不给反馈的话这段空档会被当成卡顿 */}
+                  {loading ? (
+                    <span>{t('pages.settings.webdav.loading')}</span>
+                  ) : (
+                    <>
+                      <span className='material-symbols-outlined text-[18px]'>
+                        cloud_download
+                      </span>
+                      <span>
+                        {t('pages.settings.webdav.restoreFromWebdav')}
+                      </span>
+                    </>
+                  )}
                 </MinimalButton>
               </div>
             </div>
@@ -488,10 +500,18 @@ const Settings: React.FC = () => {
             </p>
           ) : (
             <div className='space-y-2 max-h-96 overflow-y-auto'>
-              {backups.map((backup) => (
-                <div
+              {backups.map((backup, index) => (
+                // 逐条紧排进入：列表自己有节奏，比整块一起亮起来更像"工具"
+                <motion.div
                   key={backup.path}
-                  className='flex items-center justify-between p-4 bg-surface-container-high dark:bg-zinc-800 rounded-lg hover:bg-surface-variant dark:hover:bg-zinc-700 transition-colors'
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: duration.standard,
+                    ease: ease.outExpo,
+                    delay: Math.min(index, 10) * 0.03,
+                  }}
+                  className='flex items-center justify-between p-4 bg-surface-container-high dark:bg-zinc-800 rounded-lg hover:bg-surface-variant dark:hover:bg-zinc-700 transition-colors duration-fast'
                 >
                   <div className='flex-1 min-w-0 mr-4'>
                     <p className='text-sm font-medium truncate text-surface-onSurface dark:text-surface-onSurfaceDark'>
@@ -520,7 +540,7 @@ const Settings: React.FC = () => {
                       {t('pages.settings.webdav.delete')}
                     </MinimalButton>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}

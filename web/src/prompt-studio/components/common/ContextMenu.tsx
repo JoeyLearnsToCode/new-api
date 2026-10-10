@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { duration, ease } from '@/prompt-studio/styles/motion';
 
 export interface ContextMenuItem {
   label: string;
@@ -69,10 +70,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {isOpen && (
         <motion.div
           ref={menuRef}
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={{ duration: duration.instant, ease: ease.outExpo }}
           className='fixed z-50 w-auto bg-surface-containerHighest/50 backdrop-blur-md rounded-m3-medium shadow-elevation-2 py-2'
           style={{
             left: `${adjustedPosition.x}px`,
@@ -91,7 +92,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               disabled={item.disabled}
               className={`
                 w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 whitespace-nowrap text-surface-onVariant
-                transition-colors duration-150
+                transition-colors duration-fast
                 ${
                   item.disabled
                     ? 'opacity-50 cursor-not-allowed'

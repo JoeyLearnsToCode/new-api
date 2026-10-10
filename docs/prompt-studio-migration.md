@@ -5,12 +5,13 @@
 | 项 | 值 |
 | --- | --- |
 | 上游仓库 | `D:\nodejs-dev\prompt-studio` |
-| **追踪 commit** | `63b63b4af997ff58fd959514cadcf18ec40a16e8` |
-| commit 时间 | 2026-05-08 17:15:07 +0800 |
-| commit 标题 | `perf: better fuzzy search` |
-| 上游 `src/` 文件数 | 77（约 10669 行） |
-| 迁入后文件数 | 68（约 10100 行，见下表"未迁移文件"） |
-| 迁移完成日期 | 2026-10-08 |
+| **追踪 commit** | `a478a650c91adb3f96db4e224aa0d66b42eb9104` |
+| commit 时间 | 2026-10-09 17:53:51 +0800 |
+| commit 标题 | `perf: webdav restore modal` |
+| 上游 `src/` 文件数 | 79 |
+| 迁入后文件数 | 73（未迁移的死代码见第 8 节） |
+| 首次迁移完成日期 | 2026-10-08 |
+| 最近一次增量同步 | 2026-10-09（commit `a478a65`） |
 
 > 上游当时存在未提交改动：`AGENTS.md`（新增）、`pnpm-workspace.yaml`（未跟踪）。二者与运行时无关，未纳入。
 >
@@ -141,6 +142,8 @@ POST   /sample                         (文案由前端传，缺省回落中文)
 | `pages/Settings.tsx` | `navigate('/')` 改为设置 hash；WebDAV 卡片保留，数据改为走后端接口（见第5.1节） |
 | `pages/MainView.tsx` | `navigate('/settings')` 改为设置 hash；附件上传改为一次批量请求；根容器 `h-dynamic-screen` → 由 `.prompt-studio-root` 提供高度；logo 改为 `import` 随包资源 |
 | `components/version/CompareModal.tsx` | `import { editor }` → `import type`（否则 monaco 会被打进产物，约 7MB） |
+| `styles/motion.ts`（新增） | 上游同提交新增的动效 token 层，原样搬入 |
+| `components/version/ScoreRating.tsx`（新增） | 上游同提交新增，1~10 打分控件，从 `VersionMetaCard` 抽出 |
 | `components/version/AttachmentGallery.tsx` | 增加预览 URL 预取与重渲染；下载改为传附件对象以保留原始文件名 |
 | `services/webdavService.ts` | 数据源从 IndexedDB 改为后端打包/恢复接口，见第5.1节 |
 | `services/exportService.ts`（补充） | zip 构建抽成 `buildBackupZip()`，本地导出与 WebDAV 备份共用 |
@@ -214,7 +217,70 @@ extend: { colors: promptStudioColors }            // 合并工坊设计令牌
 4. **duplicate 检测**：上游 `handleSave` 实际总是传 `skipDuplicateCheck=true`，该分支在 UI 上不会触发；
    服务端仍完整实现（返回 `DUPLICATE_DETECTED:<id>`），行为保持不变
 
-## 9. 后续增量迁移指引
+## 9. 增量迁移记录
+
+### 9.1 第二次同步（commit `19faecd`，2026-10-09）
+
+基线 `63b63b4a` 之后上游只有 1 个提交：19 个文件、754 增 241 删，全部是前端动效，
+**后端无需改动**。
+
+新增文件：
+
+| 上游 | 迁入位置 |
+| --- | --- |
+| `src/styles/motion.ts` | `web/src/prompt-studio/styles/motion.ts`（时长、缓动、跟随系数、`followTo()`、`prefersReducedMotion()`） |
+| `src/components/version/ScoreRating.tsx` | `web/src/prompt-studio/components/version/ScoreRating.tsx`（1~10 打分控件，从 `VersionMetaCard` 抽出） |
+
+迁入方式：先按「上游基线 + 导入路径改写 + 宿主 prettier 格式化」做归一化比对，
+据此把受影响的 16 个文件分成两类再分别处理：
+
+- **11 个与基线无实质差异**（差异只有 `@/` → `@/prompt-studio/` 与 prettier 格式化）：
+  直接取上游新版本，重跑一遍路径改写 + 格式化
+- **5 个有本地改造**：`AppInitializer.tsx`、`ThemeToggle.tsx`、`AttachmentGallery.tsx`、
+  `MainView.tsx`、`styles/globals.css`，逐处手工合并上游增量
+- 宿主 `web/tailwind.config.js` 的 `extend` 下新增 `transitionTimingFunction`
+  （out-expo / in-expo / standard / snap）与 `transitionDuration`
+  （instant 90 / fast 160 / standard 300 / gentle 450），数值与 `motion.ts` 对齐
+
+本轮新增的偏离上游之处：
+
+1. `globals.css` 的默认缓动规则：上游写在 `@layer base` 里、作用于 `*`。
+   本文件不含 `@tailwind base` 指令（见文件头），用不了 `@layer`，
+   改为 `:where(.prompt-studio-root, .prompt-studio-root *, ...)` —— 权重同为 0，
+   `ease-*` 工具类依旧能覆盖，且作用域限定在工坊内
+2. `prefers-reduced-motion` 媒体块同样限定在 `.prompt-studio-root` 下
+3. `ThemeToggle` 保留 `useActualTheme` / `useSetTheme`（切换的是 new-api 全局主题），
+   只采用上游的双图标叠放交叉淡入
+
+其余（画布视口指数跟随、节点 hover 抬升、`renderer.dispose()`、`ScoreRating` 的
+指针横坐标打分、`panelMotion`、面板收起改 `borderWidth` / `opacity`）均与上游一致。
+
+验证结果：
+
+- `bun run build` 通过，无新增警告
+- 产物 CSS 中 `duration-fast` / `duration-instant` / `duration-standard` /
+  `ease-out-expo` / `ease-in-expo` 与默认缓动规则均已生成
+- 与上游构建产物做 CSS 选择器比对：295 个选择器中仅 2 个未命中
+  （`.h-dynamic-screen`、`.min-h-dynamic-screen`，见第 6 节），无新增缺失
+
+### 9.2 第三次同步（commit `a478a65`，2026-10-09）
+
+基线 `19faecd` 之后上游有 3 个提交：`31a834d`（CI 工作流，与运行时无关，未纳入）、
+`c923806` 与 `a478a65`（WebDAV 恢复弹窗的交互与性能）。实际只涉及 2 个源文件、
+48 增 15 删，纯前端，**后端无需改动**。
+
+| 文件 | 处理方式 |
+| --- | --- |
+| `components/common/Modal.tsx` | 无本地改动 → 直接取上游新版 + 路径改写 + 格式化。遮罩去掉 `backdrop-blur`（改 `bg-black/40`），进出场从 `scale-[0.97]` 改为纯位移，`transition-all` 收敛为 `transition-[opacity,transform]` |
+| `pages/Settings.tsx` | 有本地改造 → 手工合并 4 处：`handleRestore` 先关闭备份列表弹窗；恢复按钮 `loading` 时显示"加载中..."；备份列表改 `motion.div` 逐条错峰进入（`delay` 按 `Math.min(index, 10) * 0.03`）；`transition-colors` 补 `duration-fast` |
+
+新增用到的 `pages.settings.webdav.loading` 键在上一轮 WebDAV 迁移时已加入
+zh-CN / en-US / types 三处，本轮无需改动 i18n。
+
+验证：`bun run build` 通过且无新增警告；与上游构建产物做 CSS 选择器比对，
+294 个选择器中仍只有 2 个未命中（`.h-dynamic-screen` / `.min-h-dynamic-screen`），无新增缺失。
+
+## 10. 后续增量迁移指引
 
 1. 在 `D:\nodejs-dev\prompt-studio` 执行 `git -P diff 63b63b4a..HEAD --stat -- src`，对比本文件记录的基线
 2. 只处理 diff 涉及的文件；若 diff 触碰下列文件，需要走后端/接入逻辑，而不是直接覆盖：
@@ -229,7 +295,7 @@ extend: { colors: promptStudioColors }            // 合并工坊设计令牌
 3. 其余纯 UI 文件（组件、hooks、canvas、diff、搜索、i18n）可直接覆盖同名文件，再跑一次下面的验证
 4. 迁移完成后更新本文件头部的 commit 与日期
 
-## 10. 验证方式
+## 11. 验证方式
 
 ```bash
 # 后端

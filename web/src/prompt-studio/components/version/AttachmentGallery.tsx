@@ -6,6 +6,7 @@ import React, {
   useReducer,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { duration, ease } from '@/prompt-studio/styles/motion';
 import { attachmentManager } from '@/prompt-studio/services/attachmentManager';
 import type { Attachment } from '@/prompt-studio/models/Attachment';
 import { ImagePreview } from '@/prompt-studio/components/common/ImagePreview';
@@ -212,10 +213,10 @@ export const AttachmentGallery: React.FC<AttachmentGalleryProps> = ({
             .map((attachment) => (
               <motion.div
                 key={attachment.id}
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={{ duration: duration.standard, ease: ease.outExpo }}
                 className={`
                 relative group w-full h-full aspect-square rounded-xl overflow-hidden border border-border dark:border-border-dark
                 shadow-sm hover:shadow-md transition-all bg-background dark:bg-zinc-800

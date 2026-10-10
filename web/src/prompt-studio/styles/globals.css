@@ -38,6 +38,36 @@
   box-sizing: border-box;
 }
 
+/*
+ * 工坊内默认缓动。选择器整体包在 :where() 里，权重为 0，
+ * 任何 ease-* 工具类都能覆盖它，因此散落各处的
+ * transition-colors duration-200 也能共享同一条曲线。
+ * 上游是 `@layer base` + 作用于 * 的全局规则；本文件不含 @tailwind base
+ * 指令（见文件头说明），用不了 @layer，故改用 :where() 达到同样的权重效果，
+ * 并沿用既有约定把作用域限定在工坊内。
+ */
+:where(
+  .prompt-studio-root,
+  .prompt-studio-root *,
+  .prompt-studio-root *::before,
+  .prompt-studio-root *::after
+) {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 减少动态效果：只保留状态变化，取消位移与时长 */
+@media (prefers-reduced-motion: reduce) {
+  .prompt-studio-root,
+  .prompt-studio-root *,
+  .prompt-studio-root *::before,
+  .prompt-studio-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Scrollbar Styles */
 .prompt-studio-root ::-webkit-scrollbar {
   width: 8px;
