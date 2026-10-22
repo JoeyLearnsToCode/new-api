@@ -188,6 +188,8 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 			relayFormat = types.RelayFormatOpenAIImage
 		case constant.EndpointTypeEmbeddings:
 			relayFormat = types.RelayFormatEmbedding
+		case constant.EndpointTypeSystemOne:
+			relayFormat = types.RelayFormatSystemOne
 		default:
 			relayFormat = types.RelayFormatOpenAI
 		}
@@ -208,6 +210,9 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 		}
 		if c.Request.URL.Path == "/v1/rerank" || c.Request.URL.Path == "/rerank" {
 			relayFormat = types.RelayFormatRerank
+		}
+		if c.Request.URL.Path == "/v1/systemone" {
+			relayFormat = types.RelayFormatSystemOne
 		}
 		if c.Request.URL.Path == "/v1/responses" {
 			relayFormat = types.RelayFormatOpenAIResponses
@@ -316,6 +321,9 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 				newAPIError: types.NewError(errors.New("invalid rerank request type"), types.ErrorCodeConvertRequestFailed),
 			}
 		}
+	case relayconstant.RelayModeSystemOne:
+		// SystemOne 请求上下游同构，直接透传
+		convertedRequest = request
 	case relayconstant.RelayModeResponses:
 		// Response 请求 - request 已经是正确的类型
 		if responseReq, ok := request.(*dto.OpenAIResponsesRequest); ok {
@@ -618,6 +626,15 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 				Query:     "What is Deep Learning?",
 				Documents: []any{"Deep Learning is a subset of machine learning.", "Machine learning is a field of artificial intelligence."},
 				TopN:      2,
+			}
+		case constant.EndpointTypeSystemOne:
+			// 返回 SystemOneRequest
+			return &dto.SystemOneRequest{
+				Model: model,
+				State: "I was charged twice for the same order. Please help.",
+				Questions: map[string]json.RawMessage{
+					"urgent": json.RawMessage(`{"type":"noul","instructions":"Does this message express urgency?"}`),
+				},
 			}
 		case constant.EndpointTypeOpenAIResponse:
 			// 返回 OpenAIResponsesRequest

@@ -61,6 +61,7 @@ const ModelTestModal = ({
     'embeddings',
     'image-generation',
     'jina-rerank',
+    'systemone',
     'openai-response-compact',
   ].includes(selectedEndpointType);
 
@@ -97,6 +98,7 @@ const ModelTestModal = ({
       label: t('图像生成') + ' (/v1/images/generations)',
     },
     { value: 'embeddings', label: 'Embeddings (/v1/embeddings)' },
+    { value: 'systemone', label: 'TypeSafe System One (/v1/systemone)' },
   ];
 
   const handleCopySelected = () => {
