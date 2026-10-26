@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"mime/multipart"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -96,7 +97,23 @@ func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {
 
 func GetAndValidateSystemOneRequest(c *gin.Context) (*dto.SystemOneRequest, error) {
 	var systemOneRequest *dto.SystemOneRequest
-	err := common.UnmarshalBodyReusable(c, &systemOneRequest)
+	var err error
+	if strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+		// multipart 请求：JSON 体放在名为 request 的 part 里，图片在各文件 part 里
+		var form *multipart.Form
+		if form, err = common.ParseMultipartFormReusable(c); err != nil {
+			logger.LogError(c, fmt.Sprintf("parse systemone multipart form failed: %s", err.Error()))
+			return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		}
+		values := form.Value[dto.SystemOneRequestPart]
+		if len(values) == 0 {
+			err = fmt.Errorf("multipart part %q is required", dto.SystemOneRequestPart)
+			return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		}
+		err = common.Unmarshal([]byte(values[0]), &systemOneRequest)
+	} else {
+		err = common.UnmarshalBodyReusable(c, &systemOneRequest)
+	}
 	if err != nil {
 		logger.LogError(c, fmt.Sprintf("getAndValidateSystemOneRequest failed: %s", err.Error()))
 		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())

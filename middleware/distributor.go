@@ -294,6 +294,29 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 		if _, ok := c.Get("relay_mode"); !ok {
 			c.Set("relay_mode", relayMode)
 		}
+	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/systemone") {
+		// TypeSafe System One：JSON 体或 multipart 的 request part 里取 model
+		relayMode := relayconstant.RelayModeSystemOne
+		if strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+			form, formErr := common.ParseMultipartFormReusable(c)
+			if formErr != nil {
+				return nil, false, formErr
+			}
+			if values := form.Value[dto.SystemOneRequestPart]; len(values) > 0 {
+				var req dto.SystemOneRequest
+				if err := common.Unmarshal([]byte(values[0]), &req); err != nil {
+					return nil, false, err
+				}
+				modelRequest.Model = req.Model
+			}
+		} else {
+			req, reqErr := getModelFromRequest(c)
+			if reqErr != nil {
+				return nil, false, reqErr
+			}
+			modelRequest.Model = req.Model
+		}
+		c.Set("relay_mode", relayMode)
 	} else if strings.HasPrefix(c.Request.URL.Path, "/v1beta/models/") || strings.HasPrefix(c.Request.URL.Path, "/v1/models/") {
 		// Gemini API 路径处理: /v1beta/models/gemini-2.0-flash:generateContent
 		relayMode := relayconstant.RelayModeGemini

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -16,6 +18,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func isMultipartRequest(c *gin.Context) bool {
+	return strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data")
+}
 
 func SystemOneHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.NewAPIError) {
 	info.InitChannelMeta(c)
@@ -42,7 +48,54 @@ func SystemOneHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	adaptor.Init(info)
 
 	var requestBody io.Reader
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
+	if isMultipartRequest(c) {
+		// 上游要求 multipart 的首个 part 名为 request 且承载 JSON 体，图片各占一个文件 part
+		jsonData, err := common.Marshal(request)
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+
+		var buf bytes.Buffer
+		writer := multipart.NewWriter(&buf)
+		if err = writer.WriteField(dto.SystemOneRequestPart, string(jsonData)); err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+
+		form, err := common.ParseMultipartFormReusable(c)
+		if err != nil {
+			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
+		for _, asset := range request.ParseAssets() {
+			if asset.Part == "" {
+				continue
+			}
+			fileHeaders := form.File[asset.Part]
+			if len(fileHeaders) == 0 {
+				return types.NewError(fmt.Errorf("multipart part %q not found", asset.Part), types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+			}
+			file, err := fileHeaders[0].Open()
+			if err != nil {
+				return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+			}
+			part, err := writer.CreateFormFile(asset.Part, fileHeaders[0].Filename)
+			if err != nil {
+				file.Close()
+				return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+			}
+			if _, err = io.Copy(part, file); err != nil {
+				file.Close()
+				return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+			}
+			file.Close()
+		}
+		if err = writer.Close(); err != nil {
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+		}
+
+		// 重建后 boundary 变了，必须覆盖 Content-Type 让 adaptor 带上新的
+		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+		requestBody = &buf
+	} else if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
